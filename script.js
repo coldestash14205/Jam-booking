@@ -114,6 +114,102 @@ window.addEventListener('error', function(e) {
         console.error("Firebase error:", error.message);
     }
 
+    // ---------- CUSTOM MODAL LOGIC ----------
+    function injectModalStylesAndHTML() {
+        // Create style element
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .custom-modal-overlay {
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+                opacity: 0;
+                transition: opacity 0.2s ease;
+                padding: 1rem;
+            }
+            .custom-modal-overlay.active {
+                opacity: 1;
+            }
+            .custom-modal {
+                background: var(--bg-card);
+                border: 1px solid var(--border-main);
+                border-radius: 1rem;
+                padding: 1.5rem;
+                max-width: 400px;
+                width: 100%;
+                box-shadow: var(--shadow-app);
+                color: var(--text-primary);
+                transform: translateY(20px);
+                transition: transform 0.2s ease;
+            }
+            .custom-modal-overlay.active .custom-modal {
+                transform: translateY(0);
+            }
+            .custom-modal h3 {
+                margin-bottom: 0.75rem;
+                font-size: 1.2rem;
+                color: var(--text-primary);
+            }
+            .custom-modal p {
+                margin-bottom: 1.5rem;
+                font-size: 0.95rem;
+                color: var(--text-secondary);
+                line-height: 1.4;
+            }
+            .modal-actions {
+                display: flex;
+                gap: 0.75rem;
+                justify-content: flex-end;
+            }
+            .modal-actions button {
+                padding: 0.6rem 1.2rem;
+                border-radius: 0.5rem;
+                font-weight: 600;
+                cursor: pointer;
+                border: none;
+                font-size: 0.9rem;
+            }
+            .modal-actions .btn-cancel {
+                background: transparent;
+                color: var(--text-secondary);
+                border: 1px solid var(--border-soft);
+            }
+            .modal-actions .btn-cancel:hover {
+                background: var(--bg-input);
+            }
+            .modal-actions .btn-confirm {
+                background: var(--btn-danger-text);
+                color: white;
+            }
+            .modal-actions .btn-confirm:hover {
+                background: #8a2f2f;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Create HTML element
+        const modalHTML = `
+            <div id="customModal" class="custom-modal-overlay">
+                <div class="custom-modal">
+                    <h3 id="modalTitle">Cancel Booking</h3>
+                    <p id="modalMessage">Are you sure you want to cancel?</p>
+                    <div class="modal-actions">
+                        <button class="btn-cancel" id="modalCancelBtn">Keep Booking</button>
+                        <button class="btn-confirm" id="modalConfirmBtn">Yes, Cancel</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+
+    // Call injection immediately so it's ready
+    injectModalStylesAndHTML();
+
     // Wait for HTML to load
     document.addEventListener("DOMContentLoaded", () => {
         const userBadge = document.getElementById('userBadge');
@@ -136,6 +232,12 @@ window.addEventListener('error', function(e) {
         const thisWeekBtn = document.getElementById('thisWeekBtn');
         const themeToggle = document.getElementById('themeToggle');
         const authSection = document.getElementById('authSection');
+
+        const customModal = document.getElementById('customModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalCancelBtn = document.getElementById('modalCancelBtn');
+        const modalConfirmBtn = document.getElementById('modalConfirmBtn');
 
         function init() {
             initTheme();
@@ -206,6 +308,7 @@ window.addEventListener('error', function(e) {
             applyTheme(current === 'dark' ? 'light' : 'dark');
         });
 
+        // ---------- UPDATED CANCEL LOGIC ----------
         function cancelBooking(id) {
             if (!currentUser) return showStatus('You must be logged in to cancel.', 'error');
             if (!db) return showStatus('Database not connected.', 'error');
@@ -221,15 +324,36 @@ window.addEventListener('error', function(e) {
                 return;
             }
 
+            // Show custom modal instead of browser confirm
             const confirmMsg = userIsAdmin && !isMyBooking 
                 ? `[ADMIN] Are you sure you want to cancel ${booking.username}'s booking on ${booking.date}?`
                 : `Are you sure you want to cancel your booking on ${booking.date}?`;
 
-            if (confirm(confirmMsg)) {
-                db.ref('bookings/' + id).remove().catch(err => {
+            modalTitle.textContent = userIsAdmin && !isMyBooking ? "Admin Cancel" : "Cancel Booking";
+            modalMessage.textContent = confirmMsg;
+            customModal.classList.add('active');
+
+            // Handle confirm button click
+            modalConfirmBtn.onclick = () => {
+                db.ref('bookings/' + id).remove().then(() => {
+                    showStatus("Booking cancelled.", "success");
+                }).catch(err => {
                     showStatus("Failed to cancel: " + err.message, "error");
                 });
-            }
+                customModal.classList.remove('active');
+            };
+
+            // Handle keep button click
+            modalCancelBtn.onclick = () => {
+                customModal.classList.remove('active');
+            };
+            
+            // Close on clicking outside the modal box
+            customModal.onclick = (e) => {
+                if (e.target === customModal) {
+                    customModal.classList.remove('active');
+                }
+            };
         }
 
         function updateUserBadge() {
@@ -470,8 +594,6 @@ window.addEventListener('error', function(e) {
             const password = newPassword.value.trim();
 
             if (!username || username.length < 2) return showStatus('Username must be 2+ chars.', 'error');
-            
-            // Fixed the double return here
             if (!password || password.length < 3) return showStatus('Password must be 3+ chars.', 'error');
 
             const users = loadUsers();
