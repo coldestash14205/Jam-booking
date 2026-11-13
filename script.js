@@ -21,11 +21,90 @@ window.addEventListener('error', function(e) {
   appId: "1:90586531013:web:c51a1ddb0a865eae009cac",
   measurementId: "G-2VVJ27S1VD"
 };
-
     const ADMIN_USERS = ["admin", "coled", "owner"];
     let db = null;
     
-    // Check Firebase
+    // ---------- CONSTANTS ----------
+    const USERS_KEY = 'shared_booking_users_v2';
+    const THEME_KEY = 'shared_bookings_theme';
+    const MIN_HOUR = 8;
+    const MAX_HOUR = 22;
+
+    // ---------- STATE ----------
+    let currentUser = null;
+    let bookings = [];
+    let weekStart;
+
+    // ---------- HELPER FUNCTIONS (Moved to top to prevent undefined errors) ----------
+    function isAdmin() {
+        if (!currentUser) return false;
+        return ADMIN_USERS.some(admin => admin.toLowerCase() === currentUser.username.toLowerCase());
+    }
+
+    function timeToMinutes(timeStr) {
+        if (!timeStr) return 0;
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    }
+
+    function isTimeAllowed(timeStr) {
+        if (!timeStr) return false;
+        const [hourStr, minuteStr] = timeStr.split(':');
+        const hour = parseInt(hourStr, 10);
+        const minute = parseInt(minuteStr || '0', 10);
+        if (isNaN(hour) || isNaN(minute)) return false;
+        if (hour < MIN_HOUR || hour > MAX_HOUR) return false;
+        if (hour === MAX_HOUR && minute > 0) return false;
+        return true;
+    }
+
+    function toDateStr(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function parseDateStr(s) {
+        const [y, m, d] = s.split('-').map(Number);
+        return new Date(y, m - 1, d);
+    }
+
+    function getStartOfWeek(date) {
+        const d = new Date(date);
+        d.setHours(0, 0, 0, 0);
+        const day = d.getDay();
+        const diff = (day === 0 ? -6 : 1 - day);
+        d.setDate(d.getDate() + diff);
+        return d;
+    }
+
+    function addDays(date, n) {
+        const d = new Date(date);
+        d.setDate(d.getDate() + n);
+        return d;
+    }
+
+    function formatWeekRange(start) {
+        const end = addDays(start, 6);
+        const startStr = start.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+        const endStr = end.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+        return `${startStr} – ${endStr}`;
+    }
+
+    function loadUsers() {
+        const raw = localStorage.getItem(USERS_KEY);
+        return raw ? JSON.parse(raw) : [];
+    }
+
+    function saveUsers(users) {
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    }
+
+    // Set weekStart now that the function exists
+    weekStart = getStartOfWeek(new Date());
+
+    // ---------- INITIALIZATION ----------
     try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
@@ -33,16 +112,6 @@ window.addEventListener('error', function(e) {
     } catch (error) {
         console.error("Firebase error:", error.message);
     }
-
-    // ---------- STATE ----------
-    const USERS_KEY = 'shared_booking_users_v2';
-    const THEME_KEY = 'shared_bookings_theme';
-    const MIN_HOUR = 8;
-    const MAX_HOUR = 22;
-
-    let currentUser = null;
-    let bookings = [];
-    let weekStart = getStartOfWeek(new Date());
 
     // We wait for the HTML to load before grabbing elements
     document.addEventListener("DOMContentLoaded", () => {
@@ -67,14 +136,11 @@ window.addEventListener('error', function(e) {
         const themeToggle = document.getElementById('themeToggle');
         const authSection = document.getElementById('authSection');
 
-        // ---------- INITIALIZATION ----------
         function init() {
             initTheme();
-            weekStart = getStartOfWeek(new Date());
             renderWeekCalendar();
 
             if (db) {
-                // Listen to Firebase in real-time
                 db.ref('bookings').on('value', (snapshot) => {
                     const data = snapshot.val();
                     bookings = data ? Object.values(data) : [];
@@ -84,7 +150,6 @@ window.addEventListener('error', function(e) {
                 });
             }
 
-            // Restore User from Local Storage
             const savedUser = localStorage.getItem('currentUser');
             if (savedUser) {
                 try {
@@ -98,7 +163,6 @@ window.addEventListener('error', function(e) {
                 } catch(e) {}
             }
 
-            // Set defaults
             const today = new Date().toISOString().slice(0,10);
             bookingDate.value = today;
             bookingStartTime.value = '10:00';
@@ -107,7 +171,6 @@ window.addEventListener('error', function(e) {
             updateUserBadge();
             renderAccountArea();
 
-            // ---------- EVENT LISTENERS ----------
             loginBtn.addEventListener('click', handleLogin);
             signupSubmitBtn.addEventListener('click', handleSignup);
             newPassword.addEventListener('keypress', (e) => {
@@ -118,12 +181,6 @@ window.addEventListener('error', function(e) {
             prevWeekBtn.addEventListener('click', () => { weekStart = addDays(weekStart, -7); renderWeekCalendar(); });
             nextWeekBtn.addEventListener('click', () => { weekStart = addDays(weekStart, 7); renderWeekCalendar(); });
             thisWeekBtn.addEventListener('click', () => { weekStart = getStartOfWeek(new Date()); renderWeekCalendar(); });
-        }
-
-        // ---------- FUNCTIONS ----------
-        function isAdmin() {
-            if (!currentUser) return false;
-            return ADMIN_USERS.some(admin => admin.toLowerCase() === currentUser.username.toLowerCase());
         }
 
         function applyTheme(theme) {
@@ -147,66 +204,6 @@ window.addEventListener('error', function(e) {
             const current = document.documentElement.getAttribute('data-theme');
             applyTheme(current === 'dark' ? 'light' : 'dark');
         });
-
-        function loadUsers() {
-            const raw = localStorage.getItem(USERS_KEY);
-            return raw ? JSON.parse(raw) : [];
-        }
-
-        function saveUsers(users) {
-            localStorage.setItem(USERS_KEY, JSON.stringify(users));
-        }
-
-        function timeToMinutes(timeStr) {
-            if (!timeStr) return 0;
-            const [h, m] = timeStr.split(':').map(Number);
-            return h * 60 + m;
-        }
-
-        function isTimeAllowed(timeStr) {
-            if (!timeStr) return false;
-            const [hourStr, minuteStr] = timeStr.split(':');
-            const hour = parseInt(hourStr, 10);
-            const minute = parseInt(minuteStr || '0', 10);
-            if (isNaN(hour) || isNaN(minute)) return false;
-            if (hour < MIN_HOUR || hour > MAX_HOUR) return false;
-            if (hour === MAX_HOUR && minute > 0) return false;
-            return true;
-        }
-
-        function toDateStr(d) {
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            return `${y}-${m}-${day}`;
-        }
-
-        function parseDateStr(s) {
-            const [y, m, d] = s.split('-').map(Number);
-            return new Date(y, m - 1, d);
-        }
-
-        function getStartOfWeek(date) {
-            const d = new Date(date);
-            d.setHours(0, 0, 0, 0);
-            const day = d.getDay();
-            const diff = (day === 0 ? -6 : 1 - day);
-            d.setDate(d.getDate() + diff);
-            return d;
-        }
-
-        function addDays(date, n) {
-            const d = new Date(date);
-            d.setDate(d.getDate() + n);
-            return d;
-        }
-
-        function formatWeekRange(start) {
-            const end = addDays(start, 6);
-            const startStr = start.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-            const endStr = end.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-            return `${startStr} – ${endStr}`;
-        }
 
         function cancelBooking(id) {
             if (!currentUser) return showStatus('You must be logged in to cancel.', 'error');
@@ -472,7 +469,7 @@ window.addEventListener('error', function(e) {
             const password = newPassword.value.trim();
 
             if (!username || username.length < 2) return showStatus('Username must be 2+ chars.', 'error');
-            if (!password || password.length < 3) return return showStatus('Password must be 3+ chars.', 'error');
+            if (!password || password.length < 3) return showStatus('Password must be 3+ chars.', 'error');
 
             const users = loadUsers();
             const existing = users.find(u => u.username.toLowerCase() === username.toLowerCase());
@@ -489,7 +486,6 @@ window.addEventListener('error', function(e) {
             newUsername.value = ''; newPassword.value = '';
         }
 
-        // Start the app
         init();
     });
 })();
