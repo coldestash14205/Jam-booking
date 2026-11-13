@@ -17,20 +17,9 @@
     // =====================================================================
     const ADMIN_USERS = ["admin", "coled", "owner"];
 
-    // ---------- FIREBASE INITIALIZATION (STRICT) ----------
-    // If Firebase fails, we throw an error so you know it's not working.
+    // ---------- DATABASE STATE ----------
     let db = null;
-    try {
-        if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.databaseURL.includes("firebaseio.com")) {
-            throw new Error("Firebase config is missing or incomplete. Please update script.js.");
-        }
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.database();
-        console.log("Firebase initialized successfully. Global sharing is ACTIVE.");
-    } catch (error) {
-        console.error("FIREBASE ERROR:", error.message);
-        alert("Database connection failed. Bookings will not be shared. Check the developer console.");
-    }
+    let firebaseConnected = false;
 
     // ---------- STORAGE KEYS ----------
     const USERS_KEY = 'shared_booking_users_v2';
@@ -69,7 +58,29 @@
     const themeToggle = document.getElementById('themeToggle');
     const authSection = document.getElementById('authSection');
 
-    // Check if current user is an admin
+    // ---------- INITIALIZATION & FIREBASE ----------
+    try {
+        if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.databaseURL.includes("firebaseio.com")) {
+            throw new Error("Firebase config missing or incomplete.");
+        }
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        
+        // Test the connection
+        db.ref('.info/connected').on('value', (snap) => {
+            firebaseConnected = snap.val() === true;
+            if (firebaseConnected) {
+                console.log("Firebase CONNECTED.");
+            } else {
+                console.warn("Firebase DISCONNECTED.");
+            }
+        });
+
+    } catch (error) {
+        console.error("Firebase Init Error:", error.message);
+        alert("Firebase config is wrong! Check script.js. Bookings will NOT be shared.");
+    }
+
     function isAdmin() {
         if (!currentUser) return false;
         return ADMIN_USERS.some(admin => admin.toLowerCase() === currentUser.username.toLowerCase());
@@ -98,23 +109,23 @@
         applyTheme(current === 'dark' ? 'light' : 'dark');
     });
 
-    // ---------- DATA SYNC (FIREBASE ONLY) ----------
+    // ---------- DATA SYNC ----------
     function initBookingsListener() {
-        if (!db) {
-            showStatus("Database not connected. Refusing to load.", "error");
-            return;
-        }
+        if (!db) return;
+        
+        // Render calendar immediately so it's not blank
+        renderWeekCalendar();
 
-        // Listen to Firebase in real-time
         db.ref('bookings').on('value', (snapshot) => {
             const data = snapshot.val();
-            bookings = data ? Object.values(data) : [];
+            console.log("Firebase Data Received:", data);
             
-            // Re-render UI whenever data changes from ANY user
+            bookings = data ? Object.values(data) : [];
             renderSlots();
+            
         }, (error) => {
             console.error("Firebase read error:", error);
-            showStatus("Database read error: " + error.message, "error");
+            showStatus("PERMISSION DENIED or Network Error. Check your Firebase Rules!", "error");
         });
     }
 
@@ -186,6 +197,11 @@
             showStatus('You must be logged in to cancel.', 'error');
             return;
         }
+        if (!db) {
+            showStatus('Database not connected.', 'error');
+            return;
+        }
+
         const booking = bookings.find(b => b.id === id);
         if (!booking) return;
 
@@ -202,8 +218,9 @@
             : `Are you sure you want to cancel your booking on ${booking.date} from ${booking.startTime} to ${booking.endTime}?`;
 
         if (confirm(confirmMsg)) {
-            // Remove from Firebase
-            db.ref('bookings/' + id).remove().catch(err => {
+            db.ref('bookings/' + id).remove().then(() => {
+                showStatus('Booking cancelled successfully.', 'success');
+            }).catch(err => {
                 showStatus("Failed to cancel: " + err.message, "error");
             });
         }
@@ -267,7 +284,7 @@
         if (statusTimeout) clearTimeout(statusTimeout);
         statusTimeout = setTimeout(() => {
             statusMessage.style.display = 'none';
-        }, 5000);
+        }, 6000);
     }
 
     // ---------- RENDER WEEK CALENDAR ----------
@@ -383,14 +400,14 @@
         });
     }
 
-    // ---------- BOOKING LOGIC (WITH GLOBAL DOUBLE-BOOK PREVENTION) ----------
+    // ---------- BOOKING LOGIC ----------
     function bookSlot() {
         if (!db) {
-            showStatus('Database not connected.', 'error');
+            showStatus('Database not connected. Check script.js.', 'error');
             return;
         }
         if (!currentUser) {
-            showStatus('You must be logged in to book a slot. Please log in or sign up.', 'error');
+            showStatus('You must be logged in to book a slot.', 'error');
             authSection.style.boxShadow = '0 0 0 2px #d97a7a';
             setTimeout(() => { authSection.style.boxShadow = 'none'; }, 2000);
             return;
@@ -418,8 +435,7 @@
             return;
         }
 
-        // CRITICAL FIX: Fetch the freshest data directly from Firebase before checking overlaps
-        // This prevents two people clicking at the exact same second from double booking.
+        // Fetch latest data directly from Firebase to prevent double booking
         db.ref('bookings').once('value').then((snapshot) => {
             const latestData = snapshot.val();
             const latestBookings = latestData ? Object.values(latestData) : [];
@@ -432,11 +448,10 @@
             });
 
             if (hasOverlap) {
-                showStatus(`This time slot overlaps with a booking someone else just made on ${date}. Please choose another time.`, 'error');
+                showStatus(`Someone just booked this time on ${date}. Please choose another.`, 'error');
                 return;
             }
 
-            // Proceed with booking
             const newBooking = {
                 id: 'b' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
                 date,
@@ -445,7 +460,6 @@
                 username: currentUser.username,
             };
             
-            // Save directly to Firebase
             db.ref('bookings/' + newBooking.id).set(newBooking).then(() => {
                 const bookedDate = parseDateStr(date);
                 weekStart = getStartOfWeek(bookedDate);
