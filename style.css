@@ -693,3 +693,31 @@ button.danger-outline:hover {
     color: var(--text-muted);
     margin-top: 0.2rem;
 }
+/* ---------- CANCEL BUTTON ---------- */
+.cancel-btn {
+    background: transparent;
+    border: 1px solid var(--btn-danger-border);
+    color: var(--btn-danger-text);
+    font-size: 0.7rem;
+    margin-top: 0.4rem;
+    padding: 0.3rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: 0.15s;
+    width: 100%;
+}
+
+.cancel-btn:hover {
+    background: var(--btn-danger-hover);
+    color: var(--btn-danger-text);
+}
+
+/* Make calendar pills look clickable if it's yours */
+.booking-pill.mine {
+    cursor: pointer;
+}
+.booking-pill.mine:hover {
+    filter: brightness(0.95);
+    text-decoration: line-through;
+    opacity: 0.8;
+}
