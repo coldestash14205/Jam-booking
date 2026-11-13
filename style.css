@@ -685,15 +685,6 @@ button.danger-outline:hover {
     color: var(--status-success-text);
     border-left-color: var(--status-success-border);
 }
-.cancel-booking {
-    color: var(--cancel-link) !important;
-}
-.hint {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    margin-top: 0.2rem;
-}
-/* ---------- CANCEL BUTTON ---------- */
 .cancel-btn {
     background: transparent;
     border: 1px solid var(--btn-danger-border);
@@ -706,47 +697,31 @@ button.danger-outline:hover {
     transition: 0.15s;
     width: 100%;
 }
-
 .cancel-btn:hover {
     background: var(--btn-danger-hover);
-    color: var(--btn-danger-text);
+}
+.cancel-btn.admin-cancel {
+    border-color: #e89a9a;
+    color: #a13e3e;
+    background: rgba(217, 122, 122, 0.1);
+}
+[data-theme="dark"] .cancel-btn.admin-cancel {
+    border-color: #a05a5a;
+    color: #e89a9a;
+    background: rgba(160, 90, 90, 0.2);
+}
+.cancel-btn.admin-cancel:hover {
+    background: rgba(217, 122, 122, 0.2);
+}
+.cancel-booking {
+    color: var(--cancel-link) !important;
+}
+.hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
 }
 
-/* Make calendar pills look clickable if it's yours */
-.booking-pill.mine {
-    cursor: pointer;
-}
-.booking-pill.mine:hover {
-    filter: brightness(0.95);
-    text-decoration: line-through;
-    opacity: 0.8;
-}
-.cancel-btn.admin-cancel {
-    border-color: #e89a9a;
-    color: #a13e3e;
-    background: rgba(217, 122, 122, 0.1);
-}
-[data-theme="dark"] .cancel-btn.admin-cancel {
-    border-color: #a05a5a;
-    color: #e89a9a;
-    background: rgba(160, 90, 90, 0.2);
-}
-.cancel-btn.admin-cancel:hover {
-    background: rgba(217, 122, 122, 0.2);
-}
-.cancel-btn.admin-cancel {
-    border-color: #e89a9a;
-    color: #a13e3e;
-    background: rgba(217, 122, 122, 0.1);
-}
-[data-theme="dark"] .cancel-btn.admin-cancel {
-    border-color: #a05a5a;
-    color: #e89a9a;
-    background: rgba(160, 90, 90, 0.2);
-}
-.cancel-btn.admin-cancel:hover {
-    background: rgba(217, 122, 122, 0.2);
-}
 /* Mobile Friendly Overrides */
 @media (max-width: 600px) {
     .main-grid {
