@@ -12,6 +12,11 @@
   measurementId: "G-2VVJ27S1VD"
 };
 
+    // =====================================================================
+    // 👑 ADMIN USERS: Add usernames here to give them power to delete ANY booking
+    // =====================================================================
+    const ADMIN_USERS = ["admin", "coled", "owner"]; // Replace with actual admin usernames
+
     // ---------- DATABASE STATE ----------
     let db = null;
     let useLocalStorageFallback = false;
@@ -54,16 +59,23 @@
     const themeToggle = document.getElementById('themeToggle');
     const authSection = document.getElementById('authSection');
 
-    // ---------- INITIALIZATION ----------
+    // ---------- INITIALIZATION & FIREBASE ----------
     try {
-        if (firebaseConfig.apiKey === "YOUR_API_KEY") {
-            throw new Error("Firebase config missing");
+        if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.databaseURL.includes("firebaseio.com")) {
+            throw new Error("Firebase config missing or incomplete.");
         }
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
+        console.log("Firebase initialized successfully.");
     } catch (error) {
         console.warn("Firebase not configured properly. Falling back to LocalStorage.", error.message);
         useLocalStorageFallback = true;
+    }
+
+    // Check if current user is an admin
+    function isAdmin() {
+        if (!currentUser) return false;
+        return ADMIN_USERS.some(admin => admin.toLowerCase() === currentUser.username.toLowerCase());
     }
 
     // ---------- THEME ----------
@@ -95,15 +107,18 @@
             const localData = localStorage.getItem(LOCAL_BOOKINGS_KEY);
             bookings = localData ? JSON.parse(localData) : [];
             renderSlots();
-            showStatus("Running in Local Mode. Bookings won't be shared.", "error");
+            showStatus("Running in Local Mode. Database not connected.", "error");
         } else {
+            // Force immediate render so calendar opens
+            renderWeekCalendar();
+
             db.ref('bookings').on('value', (snapshot) => {
                 const data = snapshot.val();
                 bookings = data ? Object.values(data) : [];
                 renderSlots();
             }, (error) => {
                 console.error("Firebase read error:", error);
-                showStatus("Database connection error.", "error");
+                showStatus("Database error: " + error.message, "error");
             });
         }
     }
@@ -193,12 +208,20 @@
         }
         const booking = bookings.find(b => b.id === id);
         if (!booking) return;
-        if (booking.username.toLowerCase() !== currentUser.username.toLowerCase()) {
+
+        const userIsAdmin = isAdmin();
+        const isMyBooking = booking.username.toLowerCase() === currentUser.username.toLowerCase();
+
+        if (!isMyBooking && !userIsAdmin) {
             showStatus('You can only cancel your own bookings.', 'error');
             return;
         }
 
-        if (confirm(`Are you sure you want to cancel your booking on ${booking.date} from ${booking.startTime} to ${booking.endTime}?`)) {
+        const confirmMsg = userIsAdmin && !isMyBooking 
+            ? `[ADMIN] Are you sure you want to cancel ${booking.username}'s booking on ${booking.date}?`
+            : `Are you sure you want to cancel your booking on ${booking.date} from ${booking.startTime} to ${booking.endTime}?`;
+
+        if (confirm(confirmMsg)) {
             bookings = bookings.filter(b => b.id !== id);
             saveBookings(); 
             showStatus('Booking cancelled successfully.', 'success');
@@ -209,9 +232,10 @@
     function updateUserBadge() {
         if (currentUser) {
             const initial = currentUser.username.charAt(0).toUpperCase();
+            const adminBadge = isAdmin() ? ' <span style="font-size:0.7rem; background: #e4b862; color: #0b2b4f; padding: 0.1rem 0.4rem; border-radius: 10px; font-weight: bold; margin-left: 0.3rem;">ADMIN</span>' : '';
             userBadge.innerHTML = `
                 <div class="avatar">${initial}</div>
-                <span>${currentUser.username}</span>
+                <span>${currentUser.username}${adminBadge}</span>
                 <button id="logoutBtn">Logout</button>
             `;
             document.getElementById('logoutBtn').addEventListener('click', () => {
@@ -232,7 +256,7 @@
             accountArea.innerHTML = `
                 <div class="account-info">
                     <strong>Logged in as</strong><br>
-                    ${currentUser.username}<br>
+                    ${currentUser.username} ${isAdmin() ? '(Admin)' : ''}<br>
                     <span style="font-size:0.8rem; opacity:0.8;">You can book & cancel</span>
                 </div>
                 <button class="danger-outline" id="logoutBtn2">Logout</button>
@@ -267,6 +291,7 @@
 
     // ---------- RENDER WEEK CALENDAR ----------
     function renderWeekCalendar() {
+        if (!weekRange) return; // safety check
         weekRange.textContent = formatWeekRange(weekStart);
 
         const todayStr = toDateStr(new Date());
@@ -287,13 +312,19 @@
                 pillsHtml = `<div class="day-empty">no bookings</div>`;
             } else {
                 dayBookings.forEach(b => {
-                    const isMine = currentUser && b.username.toLowerCase() === currentUser.username.toLowerCase();
-                    const ownerDisplay = isMine ? 'You' : b.username;
-                    // Added a data-id so clicking on the pill works
+                    const isMyBooking = currentUser && b.username.toLowerCase() === currentUser.username.toLowerCase();
+                    const canCancel = isMyBooking || isAdmin();
+                    const ownerDisplay = isMyBooking ? 'You' : b.username;
+                    
+                    // Add visual indicators for admin or cancellable pills
+                    let pillClass = 'booking-pill';
+                    if (isMyBooking) pillClass += ' mine';
+                    else if (isAdmin()) pillClass += ' admin-view';
+
                     pillsHtml += `
-                        <div class="booking-pill ${isMine ? 'mine' : ''}" data-id="${b.id}" title="${b.startTime}-${b.endTime} · ${ownerDisplay} ${isMine ? '(Click to cancel)' : ''}">
+                        <div class="${pillClass}" data-id="${b.id}" title="${b.startTime}-${b.endTime} · ${ownerDisplay} ${canCancel ? '(Click to cancel)' : ''}">
                             <span class="pill-time">${b.startTime} - ${b.endTime}</span>
-                            <span class="pill-owner">${ownerDisplay}</span>
+                            <span class="pill-owner">${ownerDisplay} ${isAdmin() && !isMyBooking ? '(Admin)' : ''}</span>
                         </div>
                     `;
                 });
@@ -314,11 +345,17 @@
 
         weekGrid.innerHTML = html;
 
-        // Add click listeners to calendar pills for cancellation
+        // Add click listeners to calendar pills
         document.querySelectorAll('.booking-pill').forEach(pill => {
             pill.addEventListener('click', () => {
                 const id = pill.dataset.id;
-                cancelBooking(id);
+                const b = bookings.find(x => x.id === id);
+                if (!b) return;
+                
+                const isMyBooking = currentUser && b.username.toLowerCase() === currentUser.username.toLowerCase();
+                if (isMyBooking || isAdmin()) {
+                    cancelBooking(id);
+                }
             });
         });
     }
@@ -340,25 +377,26 @@
 
         let html = '';
         sorted.forEach(b => {
-            const isMine = currentUser && b.username.toLowerCase() === currentUser.username.toLowerCase();
+            const isMyBooking = currentUser && b.username.toLowerCase() === currentUser.username.toLowerCase();
+            const canCancel = isMyBooking || isAdmin();
+            
             let slotClass = 'booked';
-            if (isMine) slotClass = 'mine';
+            if (isMyBooking) slotClass = 'mine';
 
-            const ownerDisplay = isMine ? 'You' : (b.username || 'unknown');
+            const ownerDisplay = isMyBooking ? 'You' : (b.username || 'unknown');
 
             html += `
                 <div class="slot-item ${slotClass}" data-id="${b.id}">
                     <div class="slot-time">${b.startTime} - ${b.endTime}</div>
                     <div style="font-size:0.8rem; opacity:0.9;">${b.date}</div>
-                    <div class="slot-owner">${ownerDisplay}</div>
-                    ${isMine ? `<button class="cancel-btn" data-id="${b.id}">Cancel Booking</button>` : ''}
+                    <div class="slot-owner">${ownerDisplay} ${isAdmin() && !isMyBooking ? '(Admin)' : ''}</div>
+                    ${canCancel ? `<button class="cancel-btn ${isAdmin() && !isMyBooking ? 'admin-cancel' : ''}" data-id="${b.id}">${isMyBooking ? 'Cancel Booking' : 'Admin Cancel'}</button>` : ''}
                 </div>
             `;
         });
 
         slotsGrid.innerHTML = html;
 
-        // Add click listeners to list cancel buttons
         document.querySelectorAll('.cancel-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -497,6 +535,12 @@
     // ---------- INIT ----------
     function init() {
         initTheme();
+        
+        // 1. Force the calendar to load the current week immediately
+        weekStart = getStartOfWeek(new Date());
+        renderWeekCalendar();
+
+        // 2. Start the database listener
         initBookingsListener();
 
         const savedUser = localStorage.getItem('currentUser');
@@ -511,8 +555,6 @@
                 }
             } catch(e) {}
         }
-
-        weekStart = getStartOfWeek(new Date());
 
         const today = new Date().toISOString().slice(0,10);
         bookingDate.value = today;
