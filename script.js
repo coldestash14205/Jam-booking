@@ -1,5 +1,6 @@
 (function() {
-   
+    // ---------- FIREBASE CONFIGURATION ----------
+    // REPLACE THE VALUES BELOW WITH YOUR OWN FROM THE FIREBASE CONSOLE
    const firebaseConfig = {
   apiKey: "AIzaSyBmxCHkVb9K6Q0lKmeJPqE2VhMoodsAjXE",
   authDomain: "bookings-7f94b.firebaseapp.com",
@@ -8,12 +9,36 @@
   storageBucket: "bookings-7f94b.firebasestorage.app",
   messagingSenderId: "90586531013",
   appId: "1:90586531013:web:c51a1ddb0a865eae009cac",
-    };
+  measurementId: "G-2VVJ27S1VD"
+};
 
     const ADMIN_USERS = ["admin", "coled", "owner"];
 
     let db = null;
+    let configError = null;
 
+    // ---------- INITIALIZATION & FIREBASE ----------
+    try {
+        // Check if placeholders are still there
+        if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("YOUR_")) {
+            throw new Error("You forgot to paste your apiKey. It still says YOUR_API_KEY.");
+        }
+        if (!firebaseConfig.databaseURL || firebaseConfig.databaseURL.includes("YOUR_")) {
+            throw new Error("You forgot to paste your databaseURL. It still says YOUR_PROJECT_ID.");
+        }
+        if (!firebaseConfig.databaseURL.startsWith("https://")) {
+            throw new Error("Your databaseURL must start with https://");
+        }
+
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        console.log("Firebase initialized successfully.");
+    } catch (error) {
+        configError = error.message;
+        console.error("FIREBASE ERROR:", error.message);
+    }
+
+    // ---------- REST OF THE CODE ----------
     const USERS_KEY = 'shared_booking_users_v2';
     const THEME_KEY = 'shared_bookings_theme';
     const MIN_HOUR = 8;
@@ -23,7 +48,6 @@
     let bookings = [];
     let weekStart = getStartOfWeek(new Date());
 
-    // ---------- DOM refs ----------
     const userBadge = document.getElementById('userBadge');
     const accountArea = document.getElementById('accountArea');
     const newUsername = document.getElementById('newUsername');
@@ -45,29 +69,11 @@
     const themeToggle = document.getElementById('themeToggle');
     const authSection = document.getElementById('authSection');
 
-    // ---------- INITIALIZATION & FIREBASE ----------
-    try {
-        // Check if placeholders are still there
-        if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.databaseURL.includes("firebaseio.com")) {
-            throw new Error("Please replace YOUR_API_KEY and YOUR_PROJECT_ID with your real Firebase config in script.js.");
-        }
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.database();
-        console.log("Firebase initialized successfully.");
-    } catch (error) {
-        console.error("FIREBASE ERROR:", error.message);
-        // Show error without freezing the page
-        setTimeout(() => {
-            showStatus("Database error: " + error.message, "error");
-        }, 500);
-    }
-
     function isAdmin() {
         if (!currentUser) return false;
         return ADMIN_USERS.some(admin => admin.toLowerCase() === currentUser.username.toLowerCase());
     }
 
-    // ---------- THEME ----------
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
         themeToggle.textContent = theme === 'dark' ? 'Light' : 'Dark';
@@ -90,14 +96,16 @@
         applyTheme(current === 'dark' ? 'light' : 'dark');
     });
 
-    // ---------- DATA SYNC ----------
     function initBookingsListener() {
         if (!db) {
-            renderWeekCalendar(); // Force calendar to render even if DB fails
+            renderWeekCalendar(); 
+            if (configError) {
+                setTimeout(() => showStatus("FIREBASE ERROR: " + configError, "error"), 500);
+            }
             return;
         }
 
-        renderWeekCalendar(); // Render immediately
+        renderWeekCalendar(); 
 
         db.ref('bookings').on('value', (snapshot) => {
             const data = snapshot.val();
@@ -109,7 +117,6 @@
         });
     }
 
-    // ---------- LOCAL USER HELPERS ----------
     function loadUsers() {
         const raw = localStorage.getItem(USERS_KEY);
         return raw ? JSON.parse(raw) : [];
@@ -119,7 +126,6 @@
         localStorage.setItem(USERS_KEY, JSON.stringify(users));
     }
 
-    // ---------- UTILITIES ----------
     function timeToMinutes(timeStr) {
         if (!timeStr) return 0;
         const [h, m] = timeStr.split(':').map(Number);
@@ -171,7 +177,6 @@
         return `${startStr} – ${endStr}`;
     }
 
-    // ---------- CANCEL LOGIC ----------
     function cancelBooking(id) {
         if (!currentUser) return showStatus('You must be logged in to cancel.', 'error');
         if (!db) return showStatus('Database not connected.', 'error');
@@ -198,7 +203,6 @@
         }
     }
 
-    // ---------- UI UPDATE ----------
     function updateUserBadge() {
         if (currentUser) {
             const initial = currentUser.username.charAt(0).toUpperCase();
@@ -256,10 +260,9 @@
         if (statusTimeout) clearTimeout(statusTimeout);
         statusTimeout = setTimeout(() => {
             statusMessage.style.display = 'none';
-        }, 6000);
+        }, 8000); // Increased to 8 seconds so you can read the error
     }
 
-    // ---------- RENDER WEEK CALENDAR ----------
     function renderWeekCalendar() {
         if (!weekRange) return; 
         weekRange.textContent = formatWeekRange(weekStart);
@@ -322,7 +325,6 @@
         });
     }
 
-    // ---------- RENDER ALL BOOKINGS LIST ----------
     function renderSlots() {
         renderWeekCalendar();
 
@@ -366,7 +368,6 @@
         });
     }
 
-    // ---------- BOOKING LOGIC ----------
     function bookSlot() {
         if (!db) return showStatus('Database not connected.', 'error');
         if (!currentUser) {
@@ -417,7 +418,6 @@
         }).catch(err => showStatus("Read error: " + err.message, "error"));
     }
 
-    // ---------- AUTHENTICATION LOGIC ----------
     function handleLogin() {
         const username = newUsername.value.trim();
         const password = newPassword.value.trim();
@@ -459,7 +459,6 @@
         newUsername.value = ''; newPassword.value = '';
     }
 
-    // ---------- INIT ----------
     function init() {
         initTheme();
         weekStart = getStartOfWeek(new Date());
