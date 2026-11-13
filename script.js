@@ -15,12 +15,22 @@
     // =====================================================================
     // 👑 ADMIN USERS: Add usernames here to give them power to delete ANY booking
     // =====================================================================
-    const ADMIN_USERS = ["admin", "coled", "owner"]; // Replace with actual admin usernames
+    const ADMIN_USERS = ["admin", "coled", "owner"];
 
-    // ---------- DATABASE STATE ----------
+    // ---------- FIREBASE INITIALIZATION (STRICT) ----------
+    // If Firebase fails, we throw an error so you know it's not working.
     let db = null;
-    let useLocalStorageFallback = false;
-    const LOCAL_BOOKINGS_KEY = 'shared_bookings_local_fallback';
+    try {
+        if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.databaseURL.includes("firebaseio.com")) {
+            throw new Error("Firebase config is missing or incomplete. Please update script.js.");
+        }
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        console.log("Firebase initialized successfully. Global sharing is ACTIVE.");
+    } catch (error) {
+        console.error("FIREBASE ERROR:", error.message);
+        alert("Database connection failed. Bookings will not be shared. Check the developer console.");
+    }
 
     // ---------- STORAGE KEYS ----------
     const USERS_KEY = 'shared_booking_users_v2';
@@ -59,19 +69,6 @@
     const themeToggle = document.getElementById('themeToggle');
     const authSection = document.getElementById('authSection');
 
-    // ---------- INITIALIZATION & FIREBASE ----------
-    try {
-        if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.databaseURL.includes("firebaseio.com")) {
-            throw new Error("Firebase config missing or incomplete.");
-        }
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.database();
-        console.log("Firebase initialized successfully.");
-    } catch (error) {
-        console.warn("Firebase not configured properly. Falling back to LocalStorage.", error.message);
-        useLocalStorageFallback = true;
-    }
-
     // Check if current user is an admin
     function isAdmin() {
         if (!currentUser) return false;
@@ -101,41 +98,24 @@
         applyTheme(current === 'dark' ? 'light' : 'dark');
     });
 
-    // ---------- DATA SYNC ----------
+    // ---------- DATA SYNC (FIREBASE ONLY) ----------
     function initBookingsListener() {
-        if (useLocalStorageFallback) {
-            const localData = localStorage.getItem(LOCAL_BOOKINGS_KEY);
-            bookings = localData ? JSON.parse(localData) : [];
-            renderSlots();
-            showStatus("Running in Local Mode. Database not connected.", "error");
-        } else {
-            // Force immediate render so calendar opens
-            renderWeekCalendar();
-
-            db.ref('bookings').on('value', (snapshot) => {
-                const data = snapshot.val();
-                bookings = data ? Object.values(data) : [];
-                renderSlots();
-            }, (error) => {
-                console.error("Firebase read error:", error);
-                showStatus("Database error: " + error.message, "error");
-            });
+        if (!db) {
+            showStatus("Database not connected. Refusing to load.", "error");
+            return;
         }
-    }
 
-    function saveBookings() {
-        if (useLocalStorageFallback) {
-            localStorage.setItem(LOCAL_BOOKINGS_KEY, JSON.stringify(bookings));
+        // Listen to Firebase in real-time
+        db.ref('bookings').on('value', (snapshot) => {
+            const data = snapshot.val();
+            bookings = data ? Object.values(data) : [];
+            
+            // Re-render UI whenever data changes from ANY user
             renderSlots();
-        } else {
-            const updates = {};
-            bookings.forEach(b => {
-                updates[b.id] = b;
-            });
-            db.ref('bookings').set(updates).catch(err => {
-                showStatus("Error saving to database: " + err.message, "error");
-            });
-        }
+        }, (error) => {
+            console.error("Firebase read error:", error);
+            showStatus("Database read error: " + error.message, "error");
+        });
     }
 
     // ---------- LOCAL USER HELPERS ----------
@@ -222,9 +202,10 @@
             : `Are you sure you want to cancel your booking on ${booking.date} from ${booking.startTime} to ${booking.endTime}?`;
 
         if (confirm(confirmMsg)) {
-            bookings = bookings.filter(b => b.id !== id);
-            saveBookings(); 
-            showStatus('Booking cancelled successfully.', 'success');
+            // Remove from Firebase
+            db.ref('bookings/' + id).remove().catch(err => {
+                showStatus("Failed to cancel: " + err.message, "error");
+            });
         }
     }
 
@@ -291,7 +272,7 @@
 
     // ---------- RENDER WEEK CALENDAR ----------
     function renderWeekCalendar() {
-        if (!weekRange) return; // safety check
+        if (!weekRange) return; 
         weekRange.textContent = formatWeekRange(weekStart);
 
         const todayStr = toDateStr(new Date());
@@ -316,7 +297,6 @@
                     const canCancel = isMyBooking || isAdmin();
                     const ownerDisplay = isMyBooking ? 'You' : b.username;
                     
-                    // Add visual indicators for admin or cancellable pills
                     let pillClass = 'booking-pill';
                     if (isMyBooking) pillClass += ' mine';
                     else if (isAdmin()) pillClass += ' admin-view';
@@ -345,13 +325,11 @@
 
         weekGrid.innerHTML = html;
 
-        // Add click listeners to calendar pills
         document.querySelectorAll('.booking-pill').forEach(pill => {
             pill.addEventListener('click', () => {
                 const id = pill.dataset.id;
                 const b = bookings.find(x => x.id === id);
                 if (!b) return;
-                
                 const isMyBooking = currentUser && b.username.toLowerCase() === currentUser.username.toLowerCase();
                 if (isMyBooking || isAdmin()) {
                     cancelBooking(id);
@@ -405,8 +383,12 @@
         });
     }
 
-    // ---------- BOOKING LOGIC ----------
+    // ---------- BOOKING LOGIC (WITH GLOBAL DOUBLE-BOOK PREVENTION) ----------
     function bookSlot() {
+        if (!db) {
+            showStatus('Database not connected.', 'error');
+            return;
+        }
         if (!currentUser) {
             showStatus('You must be logged in to book a slot. Please log in or sign up.', 'error');
             authSection.style.boxShadow = '0 0 0 2px #d97a7a';
@@ -436,33 +418,45 @@
             return;
         }
 
-        const hasOverlap = bookings.some(b => {
-            if (b.date !== date) return false;
-            const bStart = timeToMinutes(b.startTime);
-            const bEnd = timeToMinutes(b.endTime);
-            return (startMins < bEnd && endMins > bStart);
+        // CRITICAL FIX: Fetch the freshest data directly from Firebase before checking overlaps
+        // This prevents two people clicking at the exact same second from double booking.
+        db.ref('bookings').once('value').then((snapshot) => {
+            const latestData = snapshot.val();
+            const latestBookings = latestData ? Object.values(latestData) : [];
+
+            const hasOverlap = latestBookings.some(b => {
+                if (b.date !== date) return false;
+                const bStart = timeToMinutes(b.startTime);
+                const bEnd = timeToMinutes(b.endTime);
+                return (startMins < bEnd && endMins > bStart);
+            });
+
+            if (hasOverlap) {
+                showStatus(`This time slot overlaps with a booking someone else just made on ${date}. Please choose another time.`, 'error');
+                return;
+            }
+
+            // Proceed with booking
+            const newBooking = {
+                id: 'b' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+                date,
+                startTime,
+                endTime,
+                username: currentUser.username,
+            };
+            
+            // Save directly to Firebase
+            db.ref('bookings/' + newBooking.id).set(newBooking).then(() => {
+                const bookedDate = parseDateStr(date);
+                weekStart = getStartOfWeek(bookedDate);
+                showStatus(`Booked ${date} from ${startTime} to ${endTime}!`, 'success');
+            }).catch(err => {
+                showStatus("Database save error: " + err.message, "error");
+            });
+
+        }).catch(err => {
+            showStatus("Database read error: " + err.message, "error");
         });
-
-        if (hasOverlap) {
-            showStatus(`This time slot overlaps with an existing booking on ${date}. Please choose another time.`, 'error');
-            return;
-        }
-
-        const newBooking = {
-            id: 'b' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
-            date,
-            startTime,
-            endTime,
-            username: currentUser.username,
-        };
-        
-        bookings.push(newBooking);
-        saveBookings();
-
-        const bookedDate = parseDateStr(date);
-        weekStart = getStartOfWeek(bookedDate);
-
-        showStatus(`Booked ${date} from ${startTime} to ${endTime}!`, 'success');
     }
 
     // ---------- AUTHENTICATION LOGIC ----------
@@ -541,7 +535,9 @@
         renderWeekCalendar();
 
         // 2. Start the database listener
-        initBookingsListener();
+        if (db) {
+            initBookingsListener();
+        }
 
         const savedUser = localStorage.getItem('currentUser');
         if (savedUser) {
