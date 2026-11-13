@@ -747,3 +747,42 @@ button.danger-outline:hover {
 .cancel-btn.admin-cancel:hover {
     background: rgba(217, 122, 122, 0.2);
 }
+/* Mobile Friendly Overrides */
+@media (max-width: 600px) {
+    .main-grid {
+        padding: 1rem;
+        gap: 1rem;
+    }
+    .booking-form {
+        flex-direction: column;
+        padding: 1rem;
+    }
+    .booking-form .input-group {
+        width: 100%;
+    }
+    .booking-form button {
+        width: 100%;
+        height: 48px;
+    }
+    .week-grid {
+        display: flex;
+        overflow-x: auto;
+        padding-bottom: 1rem;
+        scroll-snap-type: x mandatory;
+    }
+    .day-column {
+        min-width: 140px;
+        scroll-snap-align: start;
+    }
+    .header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .user-badge {
+        flex: 1;
+        justify-content: center;
+    }
+    header {
+        padding: 1rem;
+    }
+}
