@@ -21,6 +21,7 @@ window.addEventListener('error', function(e) {
   appId: "1:90586531013:web:c51a1ddb0a865eae009cac",
   measurementId: "G-2VVJ27S1VD"
 };
+
     const ADMIN_USERS = ["admin", "coled", "owner"];
     let db = null;
     
@@ -35,7 +36,7 @@ window.addEventListener('error', function(e) {
     let bookings = [];
     let weekStart;
 
-    // ---------- HELPER FUNCTIONS (Moved to top to prevent undefined errors) ----------
+    // ---------- HELPER FUNCTIONS ----------
     function isAdmin() {
         if (!currentUser) return false;
         return ADMIN_USERS.some(admin => admin.toLowerCase() === currentUser.username.toLowerCase());
@@ -113,7 +114,7 @@ window.addEventListener('error', function(e) {
         console.error("Firebase error:", error.message);
     }
 
-    // We wait for the HTML to load before grabbing elements
+    // Wait for HTML to load
     document.addEventListener("DOMContentLoaded", () => {
         const userBadge = document.getElementById('userBadge');
         const accountArea = document.getElementById('accountArea');
@@ -469,6 +470,8 @@ window.addEventListener('error', function(e) {
             const password = newPassword.value.trim();
 
             if (!username || username.length < 2) return showStatus('Username must be 2+ chars.', 'error');
+            
+            // Fixed the double return here
             if (!password || password.length < 3) return showStatus('Password must be 3+ chars.', 'error');
 
             const users = loadUsers();
