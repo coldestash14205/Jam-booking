@@ -55,7 +55,6 @@
     const authSection = document.getElementById('authSection');
 
     // ---------- INITIALIZATION ----------
-    // Wrap Firebase setup in try/catch so a bad config doesn't freeze the page
     try {
         if (firebaseConfig.apiKey === "YOUR_API_KEY") {
             throw new Error("Firebase config missing");
@@ -90,16 +89,14 @@
         applyTheme(current === 'dark' ? 'light' : 'dark');
     });
 
-    // ---------- DATA SYNC (FIREBASE OR LOCAL) ----------
+    // ---------- DATA SYNC ----------
     function initBookingsListener() {
         if (useLocalStorageFallback) {
-            // Local Storage Mode
             const localData = localStorage.getItem(LOCAL_BOOKINGS_KEY);
             bookings = localData ? JSON.parse(localData) : [];
             renderSlots();
             showStatus("Running in Local Mode. Bookings won't be shared.", "error");
         } else {
-            // Firebase Mode
             db.ref('bookings').on('value', (snapshot) => {
                 const data = snapshot.val();
                 bookings = data ? Object.values(data) : [];
@@ -188,6 +185,26 @@
         return `${startStr} – ${endStr}`;
     }
 
+    // ---------- CANCEL LOGIC ----------
+    function cancelBooking(id) {
+        if (!currentUser) {
+            showStatus('You must be logged in to cancel.', 'error');
+            return;
+        }
+        const booking = bookings.find(b => b.id === id);
+        if (!booking) return;
+        if (booking.username.toLowerCase() !== currentUser.username.toLowerCase()) {
+            showStatus('You can only cancel your own bookings.', 'error');
+            return;
+        }
+
+        if (confirm(`Are you sure you want to cancel your booking on ${booking.date} from ${booking.startTime} to ${booking.endTime}?`)) {
+            bookings = bookings.filter(b => b.id !== id);
+            saveBookings(); 
+            showStatus('Booking cancelled successfully.', 'success');
+        }
+    }
+
     // ---------- UI UPDATE ----------
     function updateUserBadge() {
         if (currentUser) {
@@ -272,8 +289,9 @@
                 dayBookings.forEach(b => {
                     const isMine = currentUser && b.username.toLowerCase() === currentUser.username.toLowerCase();
                     const ownerDisplay = isMine ? 'You' : b.username;
+                    // Added a data-id so clicking on the pill works
                     pillsHtml += `
-                        <div class="booking-pill ${isMine ? 'mine' : ''}" title="${b.startTime}-${b.endTime} · ${ownerDisplay}">
+                        <div class="booking-pill ${isMine ? 'mine' : ''}" data-id="${b.id}" title="${b.startTime}-${b.endTime} · ${ownerDisplay} ${isMine ? '(Click to cancel)' : ''}">
                             <span class="pill-time">${b.startTime} - ${b.endTime}</span>
                             <span class="pill-owner">${ownerDisplay}</span>
                         </div>
@@ -295,6 +313,14 @@
         }
 
         weekGrid.innerHTML = html;
+
+        // Add click listeners to calendar pills for cancellation
+        document.querySelectorAll('.booking-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                const id = pill.dataset.id;
+                cancelBooking(id);
+            });
+        });
     }
 
     // ---------- RENDER ALL BOOKINGS LIST ----------
@@ -325,30 +351,18 @@
                     <div class="slot-time">${b.startTime} - ${b.endTime}</div>
                     <div style="font-size:0.8rem; opacity:0.9;">${b.date}</div>
                     <div class="slot-owner">${ownerDisplay}</div>
-                    ${isMine ? `<button class="cancel-booking" data-id="${b.id}" style="background:transparent; border:none; font-size:0.75rem; margin-top:0.2rem; cursor:pointer; text-decoration:underline;">cancel</button>` : ''}
+                    ${isMine ? `<button class="cancel-btn" data-id="${b.id}">Cancel Booking</button>` : ''}
                 </div>
             `;
         });
 
         slotsGrid.innerHTML = html;
 
-        document.querySelectorAll('.cancel-booking').forEach(btn => {
+        // Add click listeners to list cancel buttons
+        document.querySelectorAll('.cancel-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const id = btn.dataset.id;
-                if (!currentUser) {
-                    showStatus('You must be logged in to cancel.', 'error');
-                    return;
-                }
-                const booking = bookings.find(b => b.id === id);
-                if (!booking) return;
-                if (booking.username.toLowerCase() !== currentUser.username.toLowerCase()) {
-                    showStatus('You can only cancel your own bookings.', 'error');
-                    return;
-                }
-                bookings = bookings.filter(b => b.id !== id);
-                saveBookings(); 
-                showStatus('Booking cancelled.', 'success');
+                cancelBooking(btn.dataset.id);
             });
         });
     }
@@ -384,14 +398,10 @@
             return;
         }
 
-        // Check for overlapping bookings
         const hasOverlap = bookings.some(b => {
             if (b.date !== date) return false;
-            
             const bStart = timeToMinutes(b.startTime);
             const bEnd = timeToMinutes(b.endTime);
-
-            // Overlap logic: New start is before existing end AND new end is after existing start
             return (startMins < bEnd && endMins > bStart);
         });
 
