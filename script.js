@@ -5,8 +5,6 @@ window.addEventListener('error', function(e) {
         errBox.textContent = "JAVASCRIPT ERROR: " + e.message + " (Line " + e.lineno + ")";
         errBox.style.display = 'block';
         errBox.className = 'status-message error';
-    } else {
-        alert("JAVASCRIPT ERROR: " + e.message);
     }
 });
 
@@ -46,8 +44,7 @@ window.addEventListener('error', function(e) {
     let bookings = [];
     let weekStart = getStartOfWeek(new Date());
 
-    // ---------- DOM refs ----------
-    // We wrap this in a check to make sure the HTML is loaded before running
+    // We wait for the HTML to load before grabbing elements
     document.addEventListener("DOMContentLoaded", () => {
         const userBadge = document.getElementById('userBadge');
         const accountArea = document.getElementById('accountArea');
@@ -77,7 +74,7 @@ window.addEventListener('error', function(e) {
             renderWeekCalendar();
 
             if (db) {
-                // Listen to Firebase
+                // Listen to Firebase in real-time
                 db.ref('bookings').on('value', (snapshot) => {
                     const data = snapshot.val();
                     bookings = data ? Object.values(data) : [];
@@ -87,7 +84,7 @@ window.addEventListener('error', function(e) {
                 });
             }
 
-            // Restore User
+            // Restore User from Local Storage
             const savedUser = localStorage.getItem('currentUser');
             if (savedUser) {
                 try {
@@ -475,7 +472,7 @@ window.addEventListener('error', function(e) {
             const password = newPassword.value.trim();
 
             if (!username || username.length < 2) return showStatus('Username must be 2+ chars.', 'error');
-            if (!password || password.length < 3) return showStatus('Password must be 3+ chars.', 'error');
+            if (!password || password.length < 3) return return showStatus('Password must be 3+ chars.', 'error');
 
             const users = loadUsers();
             const existing = users.find(u => u.username.toLowerCase() === username.toLowerCase());
