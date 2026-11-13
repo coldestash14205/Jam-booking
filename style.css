@@ -302,6 +302,9 @@ header h1 span {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    padding: 0.5rem;
+    border-radius: 1rem;
+    transition: box-shadow 0.3s ease;
 }
 .account-info {
     background: var(--bg-account);
@@ -402,7 +405,7 @@ button.danger-outline:hover {
     transition: background 0.25s ease, border-color 0.25s ease;
 }
 .booking-form .input-group {
-    flex: 1 1 180px;
+    flex: 1 1 150px;
 }
 .hours-note {
     font-size: 0.8rem;
@@ -689,7 +692,4 @@ button.danger-outline:hover {
     font-size: 0.75rem;
     color: var(--text-muted);
     margin-top: 0.2rem;
-}
-.sidebar div[style*="font-size: 0.85rem"] {
-    color: var(--text-tertiary) !important;
 }
