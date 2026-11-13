@@ -1,6 +1,4 @@
 (function() {
-    // ---------- FIREBASE CONFIGURATION ----------
-    // REPLACE THE VALUES BELOW WITH YOUR OWN FROM THE FIREBASE CONSOLE
    const firebaseConfig = {
   apiKey: "AIzaSyBmxCHkVb9K6Q0lKmeJPqE2VhMoodsAjXE",
   authDomain: "bookings-7f94b.firebaseapp.com",
@@ -12,6 +10,9 @@
   measurementId: "G-2VVJ27S1VD"
 };
 
+    // =====================================================================
+    // 👑 ADMIN USERS: Add usernames here to give them power to delete ANY booking
+    // =====================================================================
     const ADMIN_USERS = ["admin", "coled", "owner"];
 
     // ---------- DATABASE STATE ----------
@@ -37,10 +38,12 @@
     const newPassword = document.getElementById('newPassword');
     const loginBtn = document.getElementById('loginBtn');
     const signupSubmitBtn = document.getElementById('signupSubmitBtn');
+    
     const bookingDate = document.getElementById('bookingDate');
     const bookingStartTime = document.getElementById('bookingStartTime');
     const bookingEndTime = document.getElementById('bookingEndTime');
     const bookBtn = document.getElementById('bookBtn');
+    
     const slotsGrid = document.getElementById('slotsGrid');
     const slotCount = document.getElementById('slotCount');
     const statusMessage = document.getElementById('statusMessage');
@@ -55,14 +58,14 @@
     // ---------- INITIALIZATION & FIREBASE ----------
     try {
         if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.databaseURL.includes("firebaseio.com")) {
-            throw new Error("Firebase config missing or incomplete.");
+            throw new Error("Firebase config is missing or incomplete. Please update script.js.");
         }
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
-        console.log("Firebase initialized. URL:", firebaseConfig.databaseURL);
+        console.log("Firebase initialized successfully. Global sharing is ACTIVE.");
     } catch (error) {
-        console.error("Firebase Init Error:", error.message);
-        showStatus("Firebase config is wrong. Check script.js.", "error");
+        console.error("FIREBASE ERROR:", error.message);
+        alert("Database connection failed. Bookings will not be shared. Check the developer console.");
     }
 
     function isAdmin() {
@@ -93,28 +96,37 @@
         applyTheme(current === 'dark' ? 'light' : 'dark');
     });
 
-    // ---------- DATA SYNC ----------
+    // ---------- DATA SYNC (FIREBASE ONLY) ----------
     function initBookingsListener() {
-        if (!db) return;
-        
+        if (!db) {
+            showStatus("Database not connected. Refusing to load.", "error");
+            return;
+        }
+
+        // Force immediate render so calendar opens
         renderWeekCalendar();
 
+        // Listen to Firebase in real-time
         db.ref('bookings').on('value', (snapshot) => {
             const data = snapshot.val();
-            
-            // DEBUG: Print raw data to screen so you can see if it's reading
-            console.log("Firebase Read Result:", data);
-            if (!data) {
-                console.warn("Firebase is returning null. No bookings found at the 'bookings' root path.");
-            }
-
             bookings = data ? Object.values(data) : [];
-            renderSlots();
             
+            // Re-render UI whenever data changes from ANY user
+            renderSlots();
         }, (error) => {
             console.error("Firebase read error:", error);
-            showStatus("Database Read Error: " + error.message, "error");
+            showStatus("Database read error: " + error.message, "error");
         });
+    }
+
+    // ---------- LOCAL USER HELPERS ----------
+    function loadUsers() {
+        const raw = localStorage.getItem(USERS_KEY);
+        return raw ? JSON.parse(raw) : [];
+    }
+
+    function saveUsers(users) {
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
     }
 
     // ---------- UTILITIES ----------
@@ -171,9 +183,10 @@
 
     // ---------- CANCEL LOGIC ----------
     function cancelBooking(id) {
-        if (!currentUser) return showStatus('Log in to cancel.', 'error');
-        if (!db) return showStatus('Database not connected.', 'error');
-
+        if (!currentUser) {
+            showStatus('You must be logged in to cancel.', 'error');
+            return;
+        }
         const booking = bookings.find(b => b.id === id);
         if (!booking) return;
 
@@ -186,13 +199,14 @@
         }
 
         const confirmMsg = userIsAdmin && !isMyBooking 
-            ? `[ADMIN] Cancel ${booking.username}'s booking on ${booking.date}?`
-            : `Cancel your booking on ${booking.date} from ${booking.startTime} to ${booking.endTime}?`;
+            ? `[ADMIN] Are you sure you want to cancel ${booking.username}'s booking on ${booking.date}?`
+            : `Are you sure you want to cancel your booking on ${booking.date} from ${booking.startTime} to ${booking.endTime}?`;
 
         if (confirm(confirmMsg)) {
-            db.ref('bookings/' + id).remove().then(() => {
-                showStatus('Booking cancelled.', 'success');
-            }).catch(err => showStatus("Cancel failed: " + err.message, "error"));
+            // Remove from Firebase
+            db.ref('bookings/' + id).remove().catch(err => {
+                showStatus("Failed to cancel: " + err.message, "error");
+            });
         }
     }
 
@@ -212,6 +226,7 @@
                 updateUserBadge();
                 renderAccountArea();
                 renderSlots();
+                showStatus('Logged out.', 'info');
             });
         } else {
             userBadge.innerHTML = `<span>Guest</span>`;
@@ -223,7 +238,8 @@
             accountArea.innerHTML = `
                 <div class="account-info">
                     <strong>Logged in as</strong><br>
-                    ${currentUser.username} ${isAdmin() ? '(Admin)' : ''}
+                    ${currentUser.username} ${isAdmin() ? '(Admin)' : ''}<br>
+                    <span style="font-size:0.8rem; opacity:0.8;">You can book & cancel</span>
                 </div>
                 <button class="danger-outline" id="logoutBtn2">Logout</button>
             `;
@@ -233,11 +249,12 @@
                 updateUserBadge();
                 renderAccountArea();
                 renderSlots();
+                showStatus('Logged out.', 'info');
             });
         } else {
             accountArea.innerHTML = `
                 <div class="account-info" style="background: var(--bg-account-guest);">
-                    <span style="color: var(--text-muted);">Not logged in.</span>
+                    <span style="color: var(--text-muted);">Not logged in. Please log in or create an account below.</span>
                 </div>
             `;
         }
@@ -249,12 +266,14 @@
         statusMessage.style.display = 'block';
         statusMessage.className = 'status-message ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : '');
         if (statusTimeout) clearTimeout(statusTimeout);
-        statusTimeout = setTimeout(() => { statusMessage.style.display = 'none'; }, 6000);
+        statusTimeout = setTimeout(() => {
+            statusMessage.style.display = 'none';
+        }, 5000);
     }
 
     // ---------- RENDER WEEK CALENDAR ----------
     function renderWeekCalendar() {
-        if (!weekRange) return; 
+        if (!weekRange) return; // safety check
         weekRange.textContent = formatWeekRange(weekStart);
 
         const todayStr = toDateStr(new Date());
@@ -279,12 +298,13 @@
                     const canCancel = isMyBooking || isAdmin();
                     const ownerDisplay = isMyBooking ? 'You' : b.username;
                     
+                    // Add visual indicators for admin or cancellable pills
                     let pillClass = 'booking-pill';
                     if (isMyBooking) pillClass += ' mine';
                     else if (isAdmin()) pillClass += ' admin-view';
 
                     pillsHtml += `
-                        <div class="${pillClass}" data-id="${b.id}">
+                        <div class="${pillClass}" data-id="${b.id}" title="${b.startTime}-${b.endTime} · ${ownerDisplay} ${canCancel ? '(Click to cancel)' : ''}">
                             <span class="pill-time">${b.startTime} - ${b.endTime}</span>
                             <span class="pill-owner">${ownerDisplay} ${isAdmin() && !isMyBooking ? '(Admin)' : ''}</span>
                         </div>
@@ -298,19 +318,26 @@
                         <div class="day-name">${dayNames[i]}</div>
                         <div class="day-date">${dayDate.getDate()}</div>
                     </div>
-                    <div class="day-bookings">${pillsHtml}</div>
+                    <div class="day-bookings">
+                        ${pillsHtml}
+                    </div>
                 </div>
             `;
         }
+
         weekGrid.innerHTML = html;
 
+        // Add click listeners to calendar pills
         document.querySelectorAll('.booking-pill').forEach(pill => {
             pill.addEventListener('click', () => {
                 const id = pill.dataset.id;
                 const b = bookings.find(x => x.id === id);
                 if (!b) return;
+                
                 const isMyBooking = currentUser && b.username.toLowerCase() === currentUser.username.toLowerCase();
-                if (isMyBooking || isAdmin()) cancelBooking(id);
+                if (isMyBooking || isAdmin()) {
+                    cancelBooking(id);
+                }
             });
         });
     }
@@ -326,7 +353,7 @@
         slotCount.textContent = `${sorted.length} slot${sorted.length !== 1 ? 's' : ''}`;
 
         if (sorted.length === 0) {
-            slotsGrid.innerHTML = `<div class="empty-slots">No bookings yet. Be the first!</div>`;
+            slotsGrid.innerHTML = `<div class="empty-slots">No bookings yet. Be the first to book a slot!</div>`;
             return;
         }
 
@@ -334,17 +361,18 @@
         sorted.forEach(b => {
             const isMyBooking = currentUser && b.username.toLowerCase() === currentUser.username.toLowerCase();
             const canCancel = isMyBooking || isAdmin();
+            
             let slotClass = 'booked';
             if (isMyBooking) slotClass = 'mine';
 
             const ownerDisplay = isMyBooking ? 'You' : (b.username || 'unknown');
 
             html += `
-                <div class="slot-item ${slotClass}">
+                <div class="slot-item ${slotClass}" data-id="${b.id}">
                     <div class="slot-time">${b.startTime} - ${b.endTime}</div>
                     <div style="font-size:0.8rem; opacity:0.9;">${b.date}</div>
                     <div class="slot-owner">${ownerDisplay} ${isAdmin() && !isMyBooking ? '(Admin)' : ''}</div>
-                    ${canCancel ? `<button class="cancel-btn ${isAdmin() && !isMyBooking ? 'admin-cancel' : ''}" data-id="${b.id}">Cancel</button>` : ''}
+                    ${canCancel ? `<button class="cancel-btn ${isAdmin() && !isMyBooking ? 'admin-cancel' : ''}" data-id="${b.id}">${isMyBooking ? 'Cancel Booking' : 'Admin Cancel'}</button>` : ''}
                 </div>
             `;
         });
@@ -359,11 +387,14 @@
         });
     }
 
-    // ---------- BOOKING LOGIC ----------
+    // ---------- BOOKING LOGIC (WITH GLOBAL DOUBLE-BOOK PREVENTION) ----------
     function bookSlot() {
-        if (!db) return showStatus('Database not connected.', 'error');
+        if (!db) {
+            showStatus('Database not connected.', 'error');
+            return;
+        }
         if (!currentUser) {
-            showStatus('Log in to book.', 'error');
+            showStatus('You must be logged in to book a slot. Please log in or sign up.', 'error');
             authSection.style.boxShadow = '0 0 0 2px #d97a7a';
             setTimeout(() => { authSection.style.boxShadow = 'none'; }, 2000);
             return;
@@ -374,11 +405,12 @@
         const endTime = bookingEndTime.value.trim();
 
         if (!date || !startTime || !endTime) {
-            showStatus('Fill in all fields.', 'error');
+            showStatus('Please select a date, start time, and end time.', 'error');
             return;
         }
+
         if (!isTimeAllowed(startTime) || !isTimeAllowed(endTime)) {
-            showStatus(`Hours are 08:00 to 22:00.`, 'error');
+            showStatus(`Bookings are only allowed between 08:00 and 22:00.`, 'error');
             return;
         }
 
@@ -390,7 +422,8 @@
             return;
         }
 
-        // Fetch freshest data directly from Firebase to prevent double booking
+        // CRITICAL FIX: Fetch the freshest data directly from Firebase before checking overlaps
+        // This prevents two people clicking at the exact same second from double booking.
         db.ref('bookings').once('value').then((snapshot) => {
             const latestData = snapshot.val();
             const latestBookings = latestData ? Object.values(latestData) : [];
@@ -403,10 +436,11 @@
             });
 
             if (hasOverlap) {
-                showStatus(`Someone just booked this time. Pick another.`, 'error');
+                showStatus(`This time slot overlaps with a booking someone else just made on ${date}. Please choose another time.`, 'error');
                 return;
             }
 
+            // Proceed with booking
             const newBooking = {
                 id: 'b' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
                 date,
@@ -415,15 +449,17 @@
                 username: currentUser.username,
             };
             
+            // Save directly to Firebase
             db.ref('bookings/' + newBooking.id).set(newBooking).then(() => {
-                weekStart = getStartOfWeek(parseDateStr(date));
-                showStatus(`Booked ${date} at ${startTime}!`, 'success');
+                const bookedDate = parseDateStr(date);
+                weekStart = getStartOfWeek(bookedDate);
+                showStatus(`Booked ${date} from ${startTime} to ${endTime}!`, 'success');
             }).catch(err => {
-                showStatus("Save error: " + err.message, "error");
+                showStatus("Database save error: " + err.message, "error");
             });
 
         }).catch(err => {
-            showStatus("Read error: " + err.message, "error");
+            showStatus("Database read error: " + err.message, "error");
         });
     }
 
@@ -432,50 +468,80 @@
         const username = newUsername.value.trim();
         const password = newPassword.value.trim();
 
-        if (!username || !password) return showStatus('Enter username and password.', 'error');
+        if (!username || !password) {
+            showStatus('Please enter both username and password.', 'error');
+            return;
+        }
 
         const users = loadUsers();
         const existing = users.find(u => u.username.toLowerCase() === username.toLowerCase());
 
-        if (!existing) return showStatus('Username not found. Sign up.', 'error');
-        if (existing.password !== password) return showStatus('Incorrect password.', 'error');
+        if (!existing) {
+            showStatus('Username not found. Please sign up.', 'error');
+            return;
+        }
+
+        if (existing.password !== password) {
+            showStatus('Incorrect password. Please try again.', 'error');
+            return;
+        }
 
         currentUser = { username: existing.username };
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        updateUserBadge(); renderAccountArea(); renderSlots();
+        updateUserBadge();
+        renderAccountArea();
+        renderSlots();
         showStatus(`Welcome back, ${existing.username}!`, 'success');
-        newUsername.value = ''; newPassword.value = '';
+        newUsername.value = '';
+        newPassword.value = '';
     }
 
     function handleSignup() {
         const username = newUsername.value.trim();
         const password = newPassword.value.trim();
 
-        if (!username || username.length < 2) return showStatus('Username must be 2+ chars.', 'error');
-        if (!password || password.length < 3) return showStatus('Password must be 3+ chars.', 'error');
+        if (!username || username.length < 2) {
+            showStatus('Username must be at least 2 characters.', 'error');
+            return;
+        }
+        if (!password || password.length < 3) {
+            showStatus('Password must be at least 3 characters.', 'error');
+            return;
+        }
 
         const users = loadUsers();
         const existing = users.find(u => u.username.toLowerCase() === username.toLowerCase());
 
-        if (existing) return showStatus('Username taken. Log in.', 'error');
+        if (existing) {
+            showStatus('Username already exists. Please log in instead.', 'error');
+            return;
+        }
 
         users.push({ username, password });
         saveUsers(users);
         
         currentUser = { username };
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
-        updateUserBadge(); renderAccountArea(); renderSlots();
-        showStatus(`Account created!`, 'success');
-        newUsername.value = ''; newPassword.value = '';
+        updateUserBadge();
+        renderAccountArea();
+        renderSlots();
+        showStatus(`Account created! You are now logged in as ${username}.`, 'success');
+        newUsername.value = '';
+        newPassword.value = '';
     }
 
     // ---------- INIT ----------
     function init() {
         initTheme();
+        
+        // 1. Force the calendar to load the current week immediately
         weekStart = getStartOfWeek(new Date());
         renderWeekCalendar();
 
-        if (db) initBookingsListener();
+        // 2. Start the database listener
+        if (db) {
+            initBookingsListener();
+        }
 
         const savedUser = localStorage.getItem('currentUser');
         if (savedUser) {
@@ -500,14 +566,28 @@
 
         loginBtn.addEventListener('click', handleLogin);
         signupSubmitBtn.addEventListener('click', handleSignup);
+
         newPassword.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') { e.preventDefault(); handleLogin(); }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleLogin();
+            }
         });
+
         bookBtn.addEventListener('click', bookSlot);
 
-        prevWeekBtn.addEventListener('click', () => { weekStart = addDays(weekStart, -7); renderWeekCalendar(); });
-        nextWeekBtn.addEventListener('click', () => { weekStart = addDays(weekStart, 7); renderWeekCalendar(); });
-        thisWeekBtn.addEventListener('click', () => { weekStart = getStartOfWeek(new Date()); renderWeekCalendar(); });
+        prevWeekBtn.addEventListener('click', () => {
+            weekStart = addDays(weekStart, -7);
+            renderWeekCalendar();
+        });
+        nextWeekBtn.addEventListener('click', () => {
+            weekStart = addDays(weekStart, 7);
+            renderWeekCalendar();
+        });
+        thisWeekBtn.addEventListener('click', () => {
+            weekStart = getStartOfWeek(new Date());
+            renderWeekCalendar();
+        });
     }
 
     init();
