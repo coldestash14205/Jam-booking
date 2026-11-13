@@ -9,18 +9,18 @@ window.addEventListener('error', function(e) {
 });
 
 (function() {
-    // =====================================================================
-    // ⚠️ PASTE YOUR ACTUAL FIREBASE CONFIG HERE ⚠️
-    // =====================================================================
-    const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-        databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_PROJECT_ID.appspot.com",
-        messagingSenderId: "YOUR_SENDER_ID",
-        appId: "YOUR_APP_ID"
-    };
+    // ---------- FIREBASE CONFIGURATION ----------
+    // REPLACE THE VALUES BELOW WITH YOUR OWN FROM THE FIREBASE CONSOLE
+   const firebaseConfig = {
+  apiKey: "AIzaSyBmxCHkVb9K6Q0lKmeJPqE2VhMoodsAjXE",
+  authDomain: "bookings-7f94b.firebaseapp.com",
+  databaseURL: "https://bookings-7f94b-default-rtdb.europe-west1.firebasedatabase.app/",
+  projectId: "bookings-7f94b",
+  storageBucket: "bookings-7f94b.firebasestorage.app",
+  messagingSenderId: "90586531013",
+  appId: "1:90586531013:web:c51a1ddb0a865eae009cac",
+  measurementId: "G-2VVJ27S1VD"
+};
 
     const ADMIN_USERS = ["admin", "coled", "owner"];
     let db = null;
