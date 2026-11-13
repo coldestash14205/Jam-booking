@@ -2,7 +2,7 @@
    const firebaseConfig = {
   apiKey: "AIzaSyBmxCHkVb9K6Q0lKmeJPqE2VhMoodsAjXE",
   authDomain: "bookings-7f94b.firebaseapp.com",
-  databaseURL: "https://bookings-7f94b-default-rtdb.europe-west1.firebasedatabase.app/",
+  databaseURL: "https://bookings-7f94b-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "bookings-7f94b",
   storageBucket: "bookings-7f94b.firebasestorage.app",
   messagingSenderId: "90586531013",
