@@ -116,27 +116,21 @@ window.addEventListener('error', function(e) {
 
     // Wait for HTML to load
     document.addEventListener("DOMContentLoaded", () => {
-        // Inject Modal CSS and HTML
+        
+        // Inject Modal CSS
         const style = document.createElement('style');
         style.textContent = `
             .custom-modal-overlay {
                 position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0, 0, 0, 0.5); 
-                display: none; /* CHANGED: Hide completely by default so it doesn't block clicks */
-                justify-content: center; align-items: center;
-                z-index: 9999; opacity: 0; transition: opacity 0.2s ease; padding: 1rem;
-            }
-            .custom-modal-overlay.active { 
-                display: flex; /* CHANGED: Show as flex when active */
-                opacity: 1; 
+                background: rgba(0, 0, 0, 0.6); 
+                display: flex; justify-content: center; align-items: center;
+                z-index: 9999; padding: 1rem;
             }
             .custom-modal {
                 background: var(--bg-card); border: 1px solid var(--border-main);
                 border-radius: 1rem; padding: 1.5rem; max-width: 400px; width: 100%;
                 box-shadow: var(--shadow-app); color: var(--text-primary);
-                transform: translateY(20px); transition: transform 0.2s ease;
             }
-            .custom-modal-overlay.active .custom-modal { transform: translateY(0); }
             .custom-modal h3 { margin-bottom: 0.75rem; font-size: 1.2rem; color: var(--text-primary); }
             .custom-modal p { margin-bottom: 1.5rem; font-size: 0.95rem; color: var(--text-secondary); line-height: 1.4; }
             .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
@@ -147,21 +141,6 @@ window.addEventListener('error', function(e) {
             .modal-actions .btn-confirm:hover { background: #8a2f2f; }
         `;
         document.head.appendChild(style);
-
-        const modalDiv = document.createElement('div');
-        modalDiv.id = 'customModal';
-        modalDiv.className = 'custom-modal-overlay';
-        modalDiv.innerHTML = `
-            <div class="custom-modal">
-                <h3 id="modalTitle">Cancel Booking</h3>
-                <p id="modalMessage">Are you sure you want to cancel?</p>
-                <div class="modal-actions">
-                    <button class="btn-cancel" id="modalCancelBtn">Keep Booking</button>
-                    <button class="btn-confirm" id="modalConfirmBtn">Yes, Cancel</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modalDiv);
 
         // Grab Elements
         const userBadge = document.getElementById('userBadge');
@@ -184,12 +163,6 @@ window.addEventListener('error', function(e) {
         const thisWeekBtn = document.getElementById('thisWeekBtn');
         const themeToggle = document.getElementById('themeToggle');
         const authSection = document.getElementById('authSection');
-
-        const customModal = document.getElementById('customModal');
-        const modalTitle = document.getElementById('modalTitle');
-        const modalMessage = document.getElementById('modalMessage');
-        const modalCancelBtn = document.getElementById('modalCancelBtn');
-        const modalConfirmBtn = document.getElementById('modalConfirmBtn');
 
         function init() {
             initTheme();
@@ -279,26 +252,41 @@ window.addEventListener('error', function(e) {
                 ? "[ADMIN] Are you sure you want to cancel " + booking.username + "'s booking on " + booking.date + "?"
                 : "Are you sure you want to cancel your booking on " + booking.date + "?";
 
-            modalTitle.textContent = userIsAdmin && !isMyBooking ? "Admin Cancel" : "Cancel Booking";
-            modalMessage.textContent = confirmMsg;
-            customModal.classList.add('active');
+            // 1. Create the modal HTML dynamically ONLY when needed
+            const modalDiv = document.createElement('div');
+            modalDiv.className = 'custom-modal-overlay';
+            modalDiv.innerHTML = `
+                <div class="custom-modal">
+                    <h3>${userIsAdmin && !isMyBooking ? "Admin Cancel" : "Cancel Booking"}</h3>
+                    <p>${confirmMsg}</p>
+                    <div class="modal-actions">
+                        <button class="btn-cancel" id="modalCancelBtn">Keep Booking</button>
+                        <button class="btn-confirm" id="modalConfirmBtn">Yes, Cancel</button>
+                    </div>
+                </div>
+            `;
+            
+            // 2. Add it to the screen
+            document.body.appendChild(modalDiv);
 
-            modalConfirmBtn.onclick = () => {
+            // 3. Handle button clicks
+            document.getElementById('modalConfirmBtn').onclick = () => {
                 db.ref('bookings/' + id).remove().then(() => {
                     showStatus("Booking cancelled.", "success");
                 }).catch(err => {
                     showStatus("Failed to cancel: " + err.message, "error");
                 });
-                customModal.classList.remove('active');
+                modalDiv.remove(); // Destroy the modal
             };
 
-            modalCancelBtn.onclick = () => {
-                customModal.classList.remove('active');
+            document.getElementById('modalCancelBtn').onclick = () => {
+                modalDiv.remove(); // Destroy the modal
             };
             
-            customModal.onclick = (e) => {
-                if (e.target === customModal) {
-                    customModal.classList.remove('active');
+            // Close if clicking outside the box
+            modalDiv.onclick = (e) => {
+                if (e.target === modalDiv) {
+                    modalDiv.remove(); 
                 }
             };
         }
