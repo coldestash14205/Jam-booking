@@ -23,7 +23,7 @@
     --bg-status-error: #fbe9e9;
     --bg-status-success: #e2f3e8;
 
-    --text-primary: #1e3f62;
+    --text-primary: #0b2b4f;
     --text-secondary: #1e3f62;
     --text-tertiary: #2b4e6e;
     --text-muted: #6f8da6;
@@ -291,7 +291,7 @@ header h1 span {
     flex-direction: column;
     gap: 0.4rem;
     width: 100%;
-    min-width: 0; /* CRITICAL FIX for mobile inputs */
+    min-width: 0;
 }
 .input-group label {
     font-size: 0.85rem;
@@ -349,7 +349,7 @@ button.danger-outline {
     min-width: 0;
 }
 .booking-form .input-group {
-    flex: 1 1 150px;
+    flex: 1 1 130px;
 }
 .booking-form button {
     flex: 0 0 auto;
@@ -533,18 +533,39 @@ button.danger-outline {
         padding: 1rem;
         gap: 1rem;
     }
+    
+    /* THE CRITICAL FIX FOR THE FORM */
     .booking-form {
+        display: flex;
         flex-direction: column;
         align-items: stretch;
         padding: 1.2rem;
+        width: 100%;
+        max-width: 100%;
     }
     .booking-form .input-group {
         flex: none;
+        width: 100%;
+        max-width: 100%;
     }
+    
+    /* Force inputs to behave and shrink */
+    .booking-form input[type="date"],
+    .booking-form input[type="time"] {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        -webkit-appearance: none; /* Fixes Chrome mobile stretching */
+        appearance: none;
+    }
+    
     .booking-form button {
         width: 100%;
         margin-top: 0.5rem;
+        flex: none;
     }
+
     .calendar-container {
         padding: 1rem;
     }
