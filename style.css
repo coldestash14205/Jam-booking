@@ -308,7 +308,6 @@ header h1 span {
     color: var(--text-primary);
     width: 100%;
     min-width: 0;
-    max-width: 100%;
 }
 button.primary {
     background: var(--accent-dark);
@@ -541,25 +540,30 @@ button.danger-outline {
         flex-direction: column;
         align-items: stretch;
         padding: 1.2rem;
-    }
-    .booking-form .input-group {
-        flex: 1 1 100%;
         width: 100%;
         max-width: 100%;
     }
-    /* Force inputs to shrink on mobile */
+    .booking-form .input-group {
+        flex: none;
+        width: 100%;
+        max-width: 100%;
+    }
+    
+    /* Force inputs to behave and shrink */
     .booking-form input[type="date"],
     .booking-form input[type="time"] {
+        display: block;
         width: 100%;
         max-width: 100%;
         min-width: 0;
-        box-sizing: border-box;
         -webkit-appearance: none; /* Fixes Chrome mobile stretching */
         appearance: none;
     }
+    
     .booking-form button {
         width: 100%;
         margin-top: 0.5rem;
+        flex: none;
     }
 
     .calendar-container {
