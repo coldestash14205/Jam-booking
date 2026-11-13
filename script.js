@@ -18,17 +18,26 @@
     let configError = null;
 
     // ---------- INITIALIZATION & FIREBASE ----------
+       // ---------- INITIALIZATION & FIREBASE ----------
     try {
         // Check if placeholders are still there
         if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes("YOUR_")) {
-            throw new Error("You forgot to paste your apiKey. It still says YOUR_API_KEY.");
+            throw new Error("Your apiKey is still set to: " + firebaseConfig.apiKey);
         }
         if (!firebaseConfig.databaseURL || firebaseConfig.databaseURL.includes("YOUR_")) {
-            throw new Error("You forgot to paste your databaseURL. It still says YOUR_PROJECT_ID.");
+            throw new Error("Your databaseURL is still set to: " + firebaseConfig.databaseURL);
         }
         if (!firebaseConfig.databaseURL.startsWith("https://")) {
-            throw new Error("Your databaseURL must start with https://");
+            throw new Error("Your databaseURL must start with https://. It currently is: " + firebaseConfig.databaseURL);
         }
+
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        console.log("Firebase initialized successfully.");
+    } catch (error) {
+        configError = error.message;
+        console.error("FIREBASE ERROR:", error.message);
+    }
 
         firebase.initializeApp(firebaseConfig);
         db = firebase.database();
