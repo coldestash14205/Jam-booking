@@ -50,7 +50,7 @@
     --shadow-primary: 0 4px 8px rgba(0, 30, 60, 0.1);
 
     --header-bg: #0b2b4f;
-    --header-text: #1e3f62;
+    --header-text: #ffffff;
     --user-badge-bg: #1e3f62;
     --user-badge-border: #3570a8;
     --avatar-bg: #3e8ed0;
@@ -160,7 +160,15 @@ body {
     align-items: flex-start;
     padding: 1.5rem;
     transition: background 0.25s ease;
+    color: var(--text-primary); /* Fallback */
 }
+
+/* THE CRITICAL FIX: Force all text to inherit the theme color */
+.app, .main-grid, .sidebar, .booking-panel, .calendar-container, .slots-container {
+    color: var(--text-primary);
+    transition: color 0.25s ease;
+}
+
 .app {
     max-width: 1300px;
     width: 100%;
@@ -380,6 +388,9 @@ button.danger-outline {
     flex-wrap: wrap;
     gap: 0.75rem;
 }
+.calendar-header h3 {
+    color: var(--text-primary);
+}
 .week-nav {
     display: flex;
     align-items: center;
@@ -440,6 +451,16 @@ button.danger-outline {
     font-weight: 700;
     color: var(--text-primary);
 }
+.day-column.today .day-date {
+    color: var(--accent);
+}
+.day-empty {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-align: center;
+    font-style: italic;
+    padding: 0.4rem 0;
+}
 .booking-pill {
     font-size: 0.72rem;
     padding: 0.35rem 0.45rem;
@@ -463,6 +484,9 @@ button.danger-outline {
     box-shadow: var(--shadow-card);
     min-width: 0;
 }
+.slots-header h3 {
+    color: var(--text-primary);
+}
 .slots-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
@@ -477,10 +501,14 @@ button.danger-outline {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
+    color: var(--text-primary);
 }
 .slot-item.mine {
     background: var(--bg-slot-mine);
     border-color: var(--border-pill-mine);
+}
+.slot-owner {
+    color: var(--text-secondary);
 }
 .cancel-btn {
     background: transparent;
@@ -534,7 +562,6 @@ button.danger-outline {
         gap: 1rem;
     }
     
-    /* THE CRITICAL FIX FOR THE FORM */
     .booking-form {
         display: flex;
         flex-direction: column;
@@ -549,14 +576,13 @@ button.danger-outline {
         max-width: 100%;
     }
     
-    /* Force inputs to behave and shrink */
     .booking-form input[type="date"],
     .booking-form input[type="time"] {
         display: block;
         width: 100%;
         max-width: 100%;
         min-width: 0;
-        -webkit-appearance: none; /* Fixes Chrome mobile stretching */
+        -webkit-appearance: none;
         appearance: none;
     }
     
