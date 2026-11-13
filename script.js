@@ -9,18 +9,18 @@ window.addEventListener('error', function(e) {
 });
 
 (function() {
-    // ---------- FIREBASE CONFIGURATION ----------
-    // REPLACE THE VALUES BELOW WITH YOUR OWN FROM THE FIREBASE CONSOLE
-   const firebaseConfig = {
-  apiKey: "AIzaSyBmxCHkVb9K6Q0lKmeJPqE2VhMoodsAjXE",
-  authDomain: "bookings-7f94b.firebaseapp.com",
-  databaseURL: "https://bookings-7f94b-default-rtdb.europe-west1.firebasedatabase.app/",
-  projectId: "bookings-7f94b",
-  storageBucket: "bookings-7f94b.firebasestorage.app",
-  messagingSenderId: "90586531013",
-  appId: "1:90586531013:web:c51a1ddb0a865eae009cac",
-  measurementId: "G-2VVJ27S1VD"
-};
+    // =====================================================================
+    // ⚠️ PASTE YOUR ACTUAL FIREBASE CONFIG HERE ⚠️
+    // =====================================================================
+    const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+        databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+        projectId: "YOUR_PROJECT_ID",
+        storageBucket: "YOUR_PROJECT_ID.appspot.com",
+        messagingSenderId: "YOUR_SENDER_ID",
+        appId: "YOUR_APP_ID"
+    };
 
     const ADMIN_USERS = ["admin", "coled", "owner"];
     let db = null;
@@ -114,104 +114,51 @@ window.addEventListener('error', function(e) {
         console.error("Firebase error:", error.message);
     }
 
-    // ---------- CUSTOM MODAL LOGIC ----------
-    function injectModalStylesAndHTML() {
-        // Create style element
+    // Wait for HTML to load
+    document.addEventListener("DOMContentLoaded", () => {
+        // Inject Modal CSS and HTML
         const style = document.createElement('style');
-        style.innerHTML = `
+        style.textContent = `
             .custom-modal-overlay {
-                position: fixed;
-                top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 9999;
-                opacity: 0;
-                transition: opacity 0.2s ease;
-                padding: 1rem;
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center;
+                z-index: 9999; opacity: 0; transition: opacity 0.2s ease; padding: 1rem;
             }
-            .custom-modal-overlay.active {
-                opacity: 1;
-            }
+            .custom-modal-overlay.active { opacity: 1; }
             .custom-modal {
-                background: var(--bg-card);
-                border: 1px solid var(--border-main);
-                border-radius: 1rem;
-                padding: 1.5rem;
-                max-width: 400px;
-                width: 100%;
-                box-shadow: var(--shadow-app);
-                color: var(--text-primary);
-                transform: translateY(20px);
-                transition: transform 0.2s ease;
+                background: var(--bg-card); border: 1px solid var(--border-main);
+                border-radius: 1rem; padding: 1.5rem; max-width: 400px; width: 100%;
+                box-shadow: var(--shadow-app); color: var(--text-primary);
+                transform: translateY(20px); transition: transform 0.2s ease;
             }
-            .custom-modal-overlay.active .custom-modal {
-                transform: translateY(0);
-            }
-            .custom-modal h3 {
-                margin-bottom: 0.75rem;
-                font-size: 1.2rem;
-                color: var(--text-primary);
-            }
-            .custom-modal p {
-                margin-bottom: 1.5rem;
-                font-size: 0.95rem;
-                color: var(--text-secondary);
-                line-height: 1.4;
-            }
-            .modal-actions {
-                display: flex;
-                gap: 0.75rem;
-                justify-content: flex-end;
-            }
-            .modal-actions button {
-                padding: 0.6rem 1.2rem;
-                border-radius: 0.5rem;
-                font-weight: 600;
-                cursor: pointer;
-                border: none;
-                font-size: 0.9rem;
-            }
-            .modal-actions .btn-cancel {
-                background: transparent;
-                color: var(--text-secondary);
-                border: 1px solid var(--border-soft);
-            }
-            .modal-actions .btn-cancel:hover {
-                background: var(--bg-input);
-            }
-            .modal-actions .btn-confirm {
-                background: var(--btn-danger-text);
-                color: white;
-            }
-            .modal-actions .btn-confirm:hover {
-                background: #8a2f2f;
-            }
+            .custom-modal-overlay.active .custom-modal { transform: translateY(0); }
+            .custom-modal h3 { margin-bottom: 0.75rem; font-size: 1.2rem; color: var(--text-primary); }
+            .custom-modal p { margin-bottom: 1.5rem; font-size: 0.95rem; color: var(--text-secondary); line-height: 1.4; }
+            .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; }
+            .modal-actions button { padding: 0.6rem 1.2rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; border: none; font-size: 0.9rem; }
+            .modal-actions .btn-cancel { background: transparent; color: var(--text-secondary); border: 1px solid var(--border-soft); }
+            .modal-actions .btn-cancel:hover { background: var(--bg-input); }
+            .modal-actions .btn-confirm { background: var(--btn-danger-text); color: white; }
+            .modal-actions .btn-confirm:hover { background: #8a2f2f; }
         `;
         document.head.appendChild(style);
 
-        // Create HTML element
-        const modalHTML = `
-            <div id="customModal" class="custom-modal-overlay">
-                <div class="custom-modal">
-                    <h3 id="modalTitle">Cancel Booking</h3>
-                    <p id="modalMessage">Are you sure you want to cancel?</p>
-                    <div class="modal-actions">
-                        <button class="btn-cancel" id="modalCancelBtn">Keep Booking</button>
-                        <button class="btn-confirm" id="modalConfirmBtn">Yes, Cancel</button>
-                    </div>
+        const modalDiv = document.createElement('div');
+        modalDiv.id = 'customModal';
+        modalDiv.className = 'custom-modal-overlay';
+        modalDiv.innerHTML = `
+            <div class="custom-modal">
+                <h3 id="modalTitle">Cancel Booking</h3>
+                <p id="modalMessage">Are you sure you want to cancel?</p>
+                <div class="modal-actions">
+                    <button class="btn-cancel" id="modalCancelBtn">Keep Booking</button>
+                    <button class="btn-confirm" id="modalConfirmBtn">Yes, Cancel</button>
                 </div>
             </div>
         `;
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-    }
+        document.body.appendChild(modalDiv);
 
-    // Call injection immediately so it's ready
-    injectModalStylesAndHTML();
-
-    // Wait for HTML to load
-    document.addEventListener("DOMContentLoaded", () => {
+        // Grab Elements
         const userBadge = document.getElementById('userBadge');
         const accountArea = document.getElementById('accountArea');
         const newUsername = document.getElementById('newUsername');
@@ -308,7 +255,6 @@ window.addEventListener('error', function(e) {
             applyTheme(current === 'dark' ? 'light' : 'dark');
         });
 
-        // ---------- UPDATED CANCEL LOGIC ----------
         function cancelBooking(id) {
             if (!currentUser) return showStatus('You must be logged in to cancel.', 'error');
             if (!db) return showStatus('Database not connected.', 'error');
@@ -324,16 +270,14 @@ window.addEventListener('error', function(e) {
                 return;
             }
 
-            // Show custom modal instead of browser confirm
             const confirmMsg = userIsAdmin && !isMyBooking 
-                ? `[ADMIN] Are you sure you want to cancel ${booking.username}'s booking on ${booking.date}?`
-                : `Are you sure you want to cancel your booking on ${booking.date}?`;
+                ? "[ADMIN] Are you sure you want to cancel " + booking.username + "'s booking on " + booking.date + "?"
+                : "Are you sure you want to cancel your booking on " + booking.date + "?";
 
             modalTitle.textContent = userIsAdmin && !isMyBooking ? "Admin Cancel" : "Cancel Booking";
             modalMessage.textContent = confirmMsg;
             customModal.classList.add('active');
 
-            // Handle confirm button click
             modalConfirmBtn.onclick = () => {
                 db.ref('bookings/' + id).remove().then(() => {
                     showStatus("Booking cancelled.", "success");
@@ -343,12 +287,10 @@ window.addEventListener('error', function(e) {
                 customModal.classList.remove('active');
             };
 
-            // Handle keep button click
             modalCancelBtn.onclick = () => {
                 customModal.classList.remove('active');
             };
             
-            // Close on clicking outside the modal box
             customModal.onclick = (e) => {
                 if (e.target === customModal) {
                     customModal.classList.remove('active');
