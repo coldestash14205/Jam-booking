@@ -160,7 +160,15 @@ body {
     align-items: flex-start;
     padding: 1.5rem;
     transition: background 0.25s ease;
+    color: var(--text-primary); /* Fallback */
 }
+
+/* THE CRITICAL FIX: Force all text to inherit the theme color */
+.app, .main-grid, .sidebar, .booking-panel, .calendar-container, .slots-container {
+    color: var(--text-primary);
+    transition: color 0.25s ease;
+}
+
 .app {
     max-width: 1300px;
     width: 100%;
@@ -364,8 +372,6 @@ button.danger-outline {
     border-radius: 0.6rem;
     border-left: 3px solid var(--border-hours);
 }
-
-/* CALENDAR TEXT OVERRIDES */
 .calendar-container {
     background: var(--bg-card);
     border-radius: 1.5rem;
@@ -373,7 +379,6 @@ button.danger-outline {
     padding: 1.5rem;
     box-shadow: var(--shadow-card);
     min-width: 0;
-    color: var(--text-primary); /* Forces text to be dark in light mode, light in dark mode */
 }
 .calendar-header {
     display: flex;
@@ -478,7 +483,6 @@ button.danger-outline {
     padding: 1.5rem;
     box-shadow: var(--shadow-card);
     min-width: 0;
-    color: var(--text-primary);
 }
 .slots-header h3 {
     color: var(--text-primary);
