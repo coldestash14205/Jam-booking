@@ -121,10 +121,15 @@ window.addEventListener('error', function(e) {
         style.textContent = `
             .custom-modal-overlay {
                 position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0, 0, 0, 0.5); display: flex; justify-content: center; align-items: center;
+                background: rgba(0, 0, 0, 0.5); 
+                display: none; /* CHANGED: Hide completely by default so it doesn't block clicks */
+                justify-content: center; align-items: center;
                 z-index: 9999; opacity: 0; transition: opacity 0.2s ease; padding: 1rem;
             }
-            .custom-modal-overlay.active { opacity: 1; }
+            .custom-modal-overlay.active { 
+                display: flex; /* CHANGED: Show as flex when active */
+                opacity: 1; 
+            }
             .custom-modal {
                 background: var(--bg-card); border: 1px solid var(--border-main);
                 border-radius: 1rem; padding: 1.5rem; max-width: 400px; width: 100%;
