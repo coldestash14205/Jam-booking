@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>shared bookings · no double book</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDKs (Compat build for easy use without bundlers) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+<div class="app">
+    <header>
+        <h1>
+            shared bookings
+            <span>no double book</span>
+        </h1>
+        <div class="header-right">
+            <button class="theme-toggle" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">Dark</button>
+            <div class="user-badge" id="userBadge">
+                <!-- filled via JS -->
+            </div>
+        </div>
+    </header>
+    <div class="main-grid">
+        <!-- SIDEBAR: account management -->
+        <aside class="sidebar">
+            <div class="section-title">
+                Account
+            </div>
+            <div id="accountArea">
+                <!-- dynamic -->
+            </div>
+
+            <div class="section-title" style="margin-top: 0.5rem;">
+                Create account
+            </div>
+                        <div class="account-section" id="authSection">
+                <div class="input-group">
+                    <label for="newUsername">Username</label>
+                    <input type="text" id="newUsername" placeholder="e.g. alex" autocomplete="off">
+                </div>
+                <div class="input-group">
+                    <label for="newPassword">Password (min 3 chars)</label>
+                    <input type="password" id="newPassword" placeholder="••••••">
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="primary" id="loginBtn" style="flex: 1; padding: 0.85rem 0.5rem; font-size: 0.9rem;">Log In</button>
+                    <button class="secondary" id="signupSubmitBtn" style="flex: 1; padding: 0.85rem 0.5rem; font-size: 0.9rem; border: 1px solid var(--border-soft);">Sign Up</button>
+                </div>
+                <div class="hint">Don't have an account? Click Sign Up.</div>
+            </div>
+            <div class="section-title" style="margin-top: 0.5rem;">
+                How it works
+            </div>
+            <div style="font-size: 0.85rem; color: var(--text-tertiary); line-height: 1.5;">
+                Every person creates an account.<br>
+                Bookings are shared globally via Firebase.<br>
+                One slot = one person (no double booking).<br>
+                <strong>Bookable hours: 08:00 – 22:00</strong><br>
+                You can cancel your own bookings.
+            </div>
+        </aside>
+
+        <!-- MAIN: booking area -->
+        <div class="booking-panel">
+            <div class="booking-form">
+                <div class="input-group">
+                    <label for="bookingDate">Date</label>
+                    <input type="date" id="bookingDate">
+                </div>
+                <div class="input-group">
+                    <label for="bookingTime">Time (08:00 – 22:00)</label>
+                    <input type="time" id="bookingTime" min="08:00" max="22:00" step="900" value="10:00">
+                </div>
+                <button class="primary" id="bookBtn" style="flex: 0 0 auto; height: 48px;">Book slot</button>
+            </div>
+            <div class="hours-note">
+                Bookings are only available between <strong>8:00 AM</strong> and <strong>10:00 PM</strong>.
+                Slots outside this range will be rejected.
+            </div>
+
+            <!-- WEEK CALENDAR -->
+            <div class="calendar-container">
+                <div class="calendar-header">
+                    <h3>Week view</h3>
+                    <div class="week-nav">
+                        <button id="prevWeekBtn" title="Previous week">‹</button>
+                        <span class="week-range" id="weekRange">—</span>
+                        <button id="nextWeekBtn" title="Next week">›</button>
+                        <button id="thisWeekBtn" title="Jump to this week" style="width:auto; padding:0 0.6rem; font-size:0.8rem;">Today</button>
+                    </div>
+                </div>
+                <div class="week-grid" id="weekGrid">
+                    <!-- day columns injected -->
+                </div>
+            </div>
+
+            <!-- ALL BOOKINGS LIST -->
+            <div class="slots-container">
+                <div class="slots-header">
+                    <h3>All shared bookings</h3>
+                    <div class="slot-badge" id="slotCount">0 slots</div>
+                </div>
+                <div id="statusMessage" class="status-message" style="margin-bottom: 1rem; display: none;"></div>
+                <div class="slots-grid" id="slotsGrid">
+                    <!-- dynamic slots -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
