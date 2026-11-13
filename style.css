@@ -338,6 +338,7 @@ header h1 span {
     transition: border-color 0.15s, box-shadow 0.15s, background 0.25s ease, color 0.25s ease;
     background: var(--bg-input);
     color: var(--text-primary);
+    width: 100%;
 }
 .input-group input:focus {
     border-color: var(--accent);
@@ -392,6 +393,7 @@ button.danger-outline:hover {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    min-width: 0; /* Prevents grid blowout on mobile */
 }
 .booking-form {
     display: flex;
@@ -722,8 +724,28 @@ button.danger-outline:hover {
     margin-top: 0.2rem;
 }
 
-/* Mobile Friendly Overrides */
-@media (max-width: 600px) {
+/* ---------- MOBILE OVERRIDES ---------- */
+@media (max-width: 850px) {
+    body {
+        padding: 0.5rem;
+        align-items: flex-start;
+    }
+    .app {
+        border-radius: 1rem;
+    }
+    header {
+        padding: 1rem;
+        flex-direction: column;
+        align-items: stretch;
+    }
+    header h1 {
+        font-size: 1.5rem;
+        justify-content: space-between;
+    }
+    .header-right {
+        width: 100%;
+        justify-content: space-between;
+    }
     .main-grid {
         padding: 1rem;
         gap: 1rem;
@@ -734,6 +756,7 @@ button.danger-outline:hover {
     }
     .booking-form .input-group {
         width: 100%;
+        flex: 1 1 100%;
     }
     .booking-form button {
         width: 100%;
@@ -746,18 +769,10 @@ button.danger-outline:hover {
         scroll-snap-type: x mandatory;
     }
     .day-column {
-        min-width: 140px;
+        min-width: 120px;
         scroll-snap-align: start;
     }
-    .header-right {
-        width: 100%;
-        justify-content: space-between;
-    }
-    .user-badge {
-        flex: 1;
-        justify-content: center;
-    }
-    header {
+    .sidebar {
         padding: 1rem;
     }
 }
