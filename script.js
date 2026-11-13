@@ -12,9 +12,10 @@
   measurementId: "G-2VVJ27S1VD"
 };
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    // ---------- DATABASE STATE ----------
+    let db = null;
+    let useLocalStorageFallback = false;
+    const LOCAL_BOOKINGS_KEY = 'shared_bookings_local_fallback';
 
     // ---------- STORAGE KEYS ----------
     const USERS_KEY = 'shared_booking_users_v2';
@@ -53,6 +54,19 @@
     const themeToggle = document.getElementById('themeToggle');
     const authSection = document.getElementById('authSection');
 
+    // ---------- INITIALIZATION ----------
+    // Wrap Firebase setup in try/catch so a bad config doesn't freeze the page
+    try {
+        if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+            throw new Error("Firebase config missing");
+        }
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+    } catch (error) {
+        console.warn("Firebase not configured properly. Falling back to LocalStorage.", error.message);
+        useLocalStorageFallback = true;
+    }
+
     // ---------- THEME ----------
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
@@ -76,26 +90,40 @@
         applyTheme(current === 'dark' ? 'light' : 'dark');
     });
 
-    // ---------- FIREBASE DATA SYNC ----------
+    // ---------- DATA SYNC (FIREBASE OR LOCAL) ----------
     function initBookingsListener() {
-        db.ref('bookings').on('value', (snapshot) => {
-            const data = snapshot.val();
-            bookings = data ? Object.values(data) : [];
+        if (useLocalStorageFallback) {
+            // Local Storage Mode
+            const localData = localStorage.getItem(LOCAL_BOOKINGS_KEY);
+            bookings = localData ? JSON.parse(localData) : [];
             renderSlots();
-        }, (error) => {
-            console.error("Firebase error:", error);
-            showStatus("Failed to connect to database. Check Firebase config.", "error");
-        });
+            showStatus("Running in Local Mode. Bookings won't be shared.", "error");
+        } else {
+            // Firebase Mode
+            db.ref('bookings').on('value', (snapshot) => {
+                const data = snapshot.val();
+                bookings = data ? Object.values(data) : [];
+                renderSlots();
+            }, (error) => {
+                console.error("Firebase read error:", error);
+                showStatus("Database connection error.", "error");
+            });
+        }
     }
 
     function saveBookings() {
-        const updates = {};
-        bookings.forEach(b => {
-            updates[b.id] = b;
-        });
-        db.ref('bookings').set(updates).catch(err => {
-            showStatus("Error saving to database: " + err.message, "error");
-        });
+        if (useLocalStorageFallback) {
+            localStorage.setItem(LOCAL_BOOKINGS_KEY, JSON.stringify(bookings));
+            renderSlots();
+        } else {
+            const updates = {};
+            bookings.forEach(b => {
+                updates[b.id] = b;
+            });
+            db.ref('bookings').set(updates).catch(err => {
+                showStatus("Error saving to database: " + err.message, "error");
+            });
+        }
     }
 
     // ---------- LOCAL USER HELPERS ----------
@@ -109,7 +137,6 @@
     }
 
     // ---------- UTILITIES ----------
-    // Converts "HH:MM" to total minutes from midnight for easy comparison
     function timeToMinutes(timeStr) {
         if (!timeStr) return 0;
         const [h, m] = timeStr.split(':').map(Number);
@@ -218,7 +245,7 @@
         if (statusTimeout) clearTimeout(statusTimeout);
         statusTimeout = setTimeout(() => {
             statusMessage.style.display = 'none';
-        }, 4000);
+        }, 5000);
     }
 
     // ---------- RENDER WEEK CALENDAR ----------
@@ -391,7 +418,6 @@
     }
 
     // ---------- AUTHENTICATION LOGIC ----------
-    
     function handleLogin() {
         const username = newUsername.value.trim();
         const password = newPassword.value.trim();
