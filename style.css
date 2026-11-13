@@ -734,3 +734,16 @@ button.danger-outline:hover {
 .cancel-btn.admin-cancel:hover {
     background: rgba(217, 122, 122, 0.2);
 }
+.cancel-btn.admin-cancel {
+    border-color: #e89a9a;
+    color: #a13e3e;
+    background: rgba(217, 122, 122, 0.1);
+}
+[data-theme="dark"] .cancel-btn.admin-cancel {
+    border-color: #a05a5a;
+    color: #e89a9a;
+    background: rgba(160, 90, 90, 0.2);
+}
+.cancel-btn.admin-cancel:hover {
+    background: rgba(217, 122, 122, 0.2);
+}
